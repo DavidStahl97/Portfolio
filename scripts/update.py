@@ -13,9 +13,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import export_data
 import fetch_factsheet
 import parse_factsheet
-import render_report
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -26,7 +26,8 @@ def main() -> int:
     ap.add_argument("--split", type=float, default=0.5)
     ap.add_argument("--pdf", type=Path, default=None,
                     help="Lokales PDF verwenden statt Download")
-    ap.add_argument("--no-report", action="store_true", help="HTML-Report nicht erzeugen")
+    ap.add_argument("--no-export", action="store_true",
+                    help="Daten fuer die App nicht exportieren")
     args = ap.parse_args()
 
     if args.pdf:
@@ -50,26 +51,22 @@ def main() -> int:
     parse_factsheet.print_report(fs)
     print(f"    {csv_path.relative_to(REPO)}")
 
-    if not args.no_report:
-        # Der Report wird auch bei fehlgeschlagener Prüfung geschrieben - er ist
-        # dann genau das Dokument, das zeigt, was schiefgelaufen ist.
-        print("3/4 HTML-Report erzeugen ...")
-        report = REPO / "data" / f"report_{fs.as_of:%Y%m%d}.html"
-        report.write_text(
-            render_report.build(fs, args.split, render_report.load_prev(fs.as_of)),
-            encoding="utf-8",
-        )
-        print(f"    {report.relative_to(REPO)}")
-
     if not fs.ok:
         print("\nABBRUCH: Prüfungen fehlgeschlagen, keine Zielgewichte erzeugt.")
         return 1
 
-    print("4/4 Zielgewichte berechnen ...")
-    return subprocess.call([
+    print("3/4 Zielgewichte berechnen ...")
+    rc = subprocess.call([
         sys.executable, str(Path(__file__).with_name("build_portfolio.py")),
         "--csv", str(csv_path), "--split", str(args.split),
     ])
+    if rc or args.no_export:
+        return rc
+
+    # Die App wird aus data/ gebaut - der Export ist der letzte Schritt jedes Laufs,
+    # damit `npm run dev` sofort den neuen Stichtag zeigt.
+    print("4/4 Daten für die App exportieren ...")
+    return export_data.main([])
 
 
 if __name__ == "__main__":

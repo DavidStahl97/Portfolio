@@ -2,7 +2,7 @@
 
 Länder-Zielgewichte für ein Weltportfolio, das je zur Hälfte nach
 Marktkapitalisierung und nach Bruttoinlandsprodukt (BIP, kaufkraftbereinigt)
-gewichtet ist.
+gewichtet ist – als Zeitreihe im Repository und als Seite im Browser.
 
 ## Datenquelle
 
@@ -18,118 +18,79 @@ Beides ist also identisch abgegrenzt (gleiches Universum, gleicher Stichtag) –
 genau das, was ein 50/50-Mix braucht. Das PDF ist frei abrufbar, der
 Download-Endpunkt liefert immer die neueste Ausgabe.
 
+## Was wo lebt
+
+Python lädt, prüft und rechnet; es schreibt weder Markup noch Stylesheet noch
+Skript. Alles, was es erzeugt, sind Daten – und die App unter `web/` macht daraus
+die Seite. Damit entstehen neue Diagramme im Browser aus vorhandenen Daten,
+ohne dass ein Lauf nötig wäre.
+
+| Datei | Aufgabe |
+|---|---|
+| `scripts/fetch_factsheet.py` | lädt das aktuelle Factsheet-PDF |
+| `scripts/parse_factsheet.py` | parst die Ländertabelle, prüft sie, schreibt CSV + `run_*.json` |
+| `scripts/build_portfolio.py` | 50/50-Mix (Split frei wählbar), Δ zum Vorlauf |
+| `scripts/export_data.py` | schreibt aus den versionierten Daten `web/static/data/` |
+| `scripts/update.py` | Gesamtlauf: laden → parsen → prüfen → rechnen → exportieren |
+| `web/` | die Single-Page-App (SvelteKit, `adapter-static`) |
+| `web/src/lib/types.ts` | der Datenvertrag zu `export_data.py` – beide Seiten zusammen ändern |
+
 ## Bedienung
 
 ```bash
 pip install -r requirements.txt
 
-python scripts/update.py                 # Download → Parsen → Prüfen → Zielgewichte
+python scripts/update.py                 # Download → Prüfen → Zielgewichte → Export
 python scripts/update.py --split 0.6     # 60 % MCap / 40 % BIP
 python scripts/update.py --pdf data/factsheets/GDPWLDS_20260731.pdf   # ohne Netz
+
+npm ci --prefix web
+npm run dev --prefix web                 # http://localhost:5173
 ```
+
+`export_data.py` muss vor der App gelaufen sein – sie wird aus dem gebaut, was
+es schreibt. `npm run build --prefix web` legt die fertige Seite in `web/build`,
+`npm run preview --prefix web` serviert sie.
 
 Einzelschritte, falls gewünscht:
 
 ```bash
 python scripts/fetch_factsheet.py                       # nur PDF laden
-python scripts/parse_factsheet.py <pdf>                 # nur CSV erzeugen
+python scripts/parse_factsheet.py <pdf>                 # nur CSV + run.json
 python scripts/build_portfolio.py --split 0.5           # nur Gewichte rechnen
-python scripts/build_portfolio.py --min-weight 0.5      # Kleinstpositionen kappen,
-                                                        # Rest auf 100 % normieren
+python scripts/build_portfolio.py --min-weight 0.5      # Kleinstpositionen kappen
+python scripts/export_data.py --out web/static          # nur exportieren
 ```
 
-## GitHub Action (manuell anstoßen)
+## Die Seite
 
-**Actions → „Portfolio-Report" → Run workflow.** Zwei optionale Eingaben:
-`split` (Default `0.5`) und `issue` (Default `GDPWLDS`).
-
-Der Lauf macht genau das, was `scripts/update.py` lokal tut – Factsheet laden,
-parsen, prüfen, Zielgewichte rechnen – und hängt alles als Artefakt
-**`portfolio-report-<YYYYMMDD>`** an den Lauf:
-
-* `report_<YYYYMMDD>.html` – der Report (eine Datei, keine externen Ressourcen,
-  hell/dunkel), mit Prüfstatus, Kennzahlen, Balkendiagramm der 15 größten
-  Positionen und vollständiger Ländertabelle inkl. Δ zum Vorlauf
-* die beiden CSVs und das Original-PDF
-* `run.log`, dessen Inhalt zusätzlich in der Job-Summary steht
-
-Schlägt eine Prüfung fehl, **endet der Job rot, der Report wird aber trotzdem
-erzeugt und hochgeladen** – er ist dann genau das Dokument, das zeigt, welche
-Prüfung gerissen ist. Zielgewichte werden in dem Fall nicht berechnet.
-
-Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
-
-## GitHub Pages mit Freigabe
-
-Der Workflow besteht aus zwei Jobs:
-
-1. **`report`** – lädt, prüft, rechnet, committet die CSVs und legt alles als
-   Artefakt ab. Läuft ohne Freigabe durch.
-2. **`deploy`** – veröffentlicht die Seite auf GitHub Pages.
-
-Die Seite zeigt **alle Stichtage**, nicht nur den aktuellen:
-
-```
-index.html            neuester Report
-reports/<date>.html   je Stichtag, über die Leiste oben erreichbar
-data/                 CSVs und Prüfprotokolle zum Direktabruf
-```
-
-`scripts/build_site.py` baut jeden Report bei jedem Lauf aus den versionierten
-Daten neu – `ftse_country_weights_<date>.csv` plus `run_<date>.json` (Totals und
-Prüfergebnisse). Das PDF wird dafür nicht gebraucht. So wächst die Historie auf
-der Seite automatisch mit, ohne dass generiertes HTML im Repo liegt. Die
-Δ-Spalte jedes Reports vergleicht mit seinem jeweiligen Vorgänger, nicht mit
-dem neuesten Stand.
-
-Lokal ansehen:
-
-```bash
-python scripts/build_site.py --out site
-python -m http.server -d site 8000
-```
-
-Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
-reviewers** hinterlegt, bleibt `deploy` stehen und wartet: im Actions-Lauf
-erscheint „Review deployments" → „Approve and deploy". Bis dahin ist auf der
-Seite weiterhin der vorige Report zu sehen. Den neuen prüfst du vorher aus dem
-Artefakt desselben Laufs (`report_<YYYYMMDD>.html`, eine Datei, lokal
-öffnenbar). Lehnst du ab, passiert nichts – die Seite bleibt, wie sie war.
-
-Mit `publish = false` beim Start läuft der Job `deploy` gar nicht erst an.
-
-### Einmalige Einrichtung (in den Repo-Settings, nicht im Code möglich)
-
-1. **Settings → Pages → Source: „GitHub Actions"**
-2. **Settings → Environments → `github-pages` → Required reviewers**: dich
-   selbst eintragen. Ohne diesen Schritt deployt der Job **ohne** Nachfrage.
-3. Optional unter *Deployment branches* den Branch einschränken, von dem aus
-   veröffentlicht werden darf.
+* **Startseite** – der neueste Stichtag: Kennzahlen, Prüfungen, die 15 größten
+  Positionen als Balken, die vollständige Ländertabelle.
+* **Stichtagsleiste** – jeder frühere Stichtag ist eine eigene Adresse
+  (`/stichtage/20260731/`); die Δ-Spalte vergleicht dort mit dem jeweiligen
+  Vorgänger, nicht mit dem neuesten Stand.
+* **Verlauf** – Zielgewicht der acht größten Länder über alle Stichtage.
+* **Mischungsregler** – der Split ist im Browser verstellbar, die Seite rechnet
+  sofort neu. Die versionierten CSVs bleiben davon unberührt: sie tragen die
+  Mischung, mit der der Lauf gerechnet hat.
 
 ## Ausgaben
 
-Die **CSVs und `run_*.json` sind versioniert**: sie sind die Zeitreihe der Zielgewichte, `git log
-data/` ist damit die Rebalancing-Historie. Das Factsheet-PDF und der HTML-Report
-sind Wegwerfdaten (bei jedem Lauf reproduzierbar) und stehen in `.gitignore` –
-aus der Action kommen sie als Artefakt am jeweiligen Lauf.
+Die **CSVs und `run_*.json` sind versioniert**: aus ihnen baut `export_data.py`
+die Daten der App, und `git log data/` ist die Rebalancing-Historie. Das
+Factsheet-PDF ist ein Wegwerfdatum und liegt als Actions-Artefakt.
 
 | Datei | Inhalt |
 |---|---|
-| `data/factsheets/GDPWLDS_<YYYYMMDD>.pdf` | Original-Factsheet (Archiv/Nachvollziehbarkeit) |
-| `data/ftse_country_weights_<YYYYMMDD>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
-| `data/target_weights_<YYYYMMDD>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vormonat |
-| `data/run_<YYYYMMDD>.json` | Totals und Prüfergebnisse des Laufs (versioniert, für den Neubau der Historie) |
-| `data/report_<YYYYMMDD>.html` | Report zum Lauf (auch einzeln: `scripts/render_report.py <pdf>`) |
-
-Die Δ-Spalte vergleicht mit dem zuletzt erzeugten `target_weights_*.csv` und
-zeigt damit direkt den Rebalancing-Bedarf – lokal wie in der Action, da die CSVs
-im Repo liegen und beim Checkout mitkommen. Sie ist bewusst neutral eingefärbt:
-ein steigendes Ländergewicht ist weder gut noch schlecht.
+| `data/ftse_country_weights_<date>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
+| `data/target_weights_<date>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vorlauf |
+| `data/run_<date>.json` | Totals und Prüfergebnisse des Laufs |
+| `data/factsheets/<issue>_<date>.pdf` | Original-Factsheet (nicht versioniert) |
 
 ## Prüfungen
 
-`parse_factsheet.py` bricht mit Exit-Code 1 ab (und `update.py` erzeugt dann
-keine Zielgewichte), wenn eine dieser Prüfungen fehlschlägt:
+`parse_factsheet.py` bricht mit Exit-Code 1 ab (und `update.py` rechnet dann
+nicht weiter), wenn eine dieser Prüfungen fehlschlägt:
 
 1. Summe der Konstituenten aller Länder == `Totals`-Zeile (beide Indizes, exakt)
 2. Summe der Net MCap aller Länder == `Totals` (beide Indizes, rel. Toleranz 1e-6)
@@ -141,19 +102,45 @@ keine Zielgewichte), wenn eine dieser Prüfungen fehlschlägt:
 5. Mindestens 30 Länder, keine Dubletten
 
 Damit fällt sowohl ein Layout-Wechsel des PDFs als auch eine unvollständig
-geparste Tabelle sofort auf, statt still ein falsches Portfolio zu erzeugen.
+geparste Tabelle sofort auf, statt still ein falsches Portfolio zu erzeugen. Die
+Ergebnisse wandern in `run_*.json` und stehen auf der Seite unter „Prüfungen" –
+auch für jeden früheren Stichtag.
 
-## Aktueller Stand (31.07.2026, 50/50)
+## GitHub Action mit Freigabe
 
-| Land | MCap % | BIP % | Ziel % |
-|---|---:|---:|---:|
-| USA | 61,66 | 17,80 | 39,73 |
-| China | 2,82 | 22,98 | 12,90 |
-| Indien | 1,63 | 11,60 | 6,62 |
-| Japan | 5,95 | 3,65 | 4,80 |
-| UK | 3,28 | 2,38 | 2,83 |
+**Actions → „Portfolio-Report" → Run workflow.** Eingaben: `split`, `issue`,
+`commit`, `publish`. Der Workflow besteht aus zwei Jobs:
 
-Vollständig in `data/target_weights_20260731.csv`.
+1. **`report`** – lädt, prüft, rechnet, committet die Daten, baut die App und
+   legt sie als Artefakt ab. Läuft ohne Freigabe durch.
+2. **`deploy`** – veröffentlicht die Seite auf GitHub Pages.
+
+Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
+reviewers** hinterlegt, bleibt `deploy` stehen: im Actions-Lauf erscheint
+„Review deployments" → „Approve and deploy". Bis dahin ist auf der Seite
+weiterhin der vorige Stand zu sehen. Den neuen siehst du vorher aus dem Artefakt
+desselben Laufs – es enthält den Ordner `preview`, dieselbe Seite ohne
+Pfadpräfix:
+
+```bash
+npx serve preview          # oder: python3 -m http.server -d preview
+```
+
+Bei grünem Lauf committet die Action die aktualisierten CSVs und `run_*.json`
+zurück auf den Branch, auf dem sie lief (per Eingabe `commit` abschaltbar).
+Ändert sich inhaltlich nichts, entsteht auch kein Commit; bei fehlgeschlagener
+Prüfung wird nichts committet, damit die Zeitreihe sauber bleibt. Mit
+`publish = false` läuft `deploy` gar nicht erst an.
+
+Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
+
+### Einmalige Einrichtung (in den Repo-Settings, nicht im Code möglich)
+
+1. **Settings → Pages → Source: „GitHub Actions"**
+2. **Settings → Environments → `github-pages` → Required reviewers**: dich
+   selbst eintragen. Ohne diesen Schritt deployt der Job **ohne** Nachfrage.
+3. Optional unter *Deployment branches* den Branch einschränken, von dem aus
+   veröffentlicht werden darf.
 
 ## Turnus
 
@@ -171,4 +158,5 @@ oder jährliches Rebalancing.
 * Das Universum umfasst nur Länder mit investierbaren FTSE-All-World-Titeln;
   BIP-Anteile von Ländern ohne Index-Vertretung fallen heraus und werden
   implizit auf die übrigen verteilt.
+* Ist das Repository öffentlich, ist es auch die Pages-Seite.
 * Keine Anlageberatung; die PDFs unterliegen den LSEG/FTSE-Nutzungsbedingungen.

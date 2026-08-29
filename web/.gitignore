@@ -1,0 +1,7 @@
+node_modules/
+build/
+.svelte-kit/
+
+# von export_data.py geschrieben; static/favicon.svg dagegen ist Quelle
+static/data/
+static/csv/

@@ -23,7 +23,7 @@ on:
         required: false
         default: true
       publish:
-        description: "Report nach Freigabe auf GitHub Pages veroeffentlichen"
+        description: "Seite nach Freigabe auf GitHub Pages veroeffentlichen"
         type: boolean
         required: false
         default: true
@@ -32,8 +32,9 @@ permissions: {}
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1) Erzeugen. Laeuft ohne Freigabe durch und legt alles als Artefakt ab -
-  #    das ist der Stand, den du vor der Veroeffentlichung pruefst.
+  # 1) Daten holen, pruefen, App bauen. Laeuft ohne Freigabe durch und legt die
+  #    Seite als Artefakt ab - das ist der Stand, den du vor der
+  #    Veroeffentlichung pruefst.
   # ---------------------------------------------------------------------------
   report:
     runs-on: ubuntu-latest
@@ -53,16 +54,22 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - name: Abhaengigkeiten installieren
         run: pip install -r requirements.txt
 
-      - name: Factsheet laden, pruefen und Report erzeugen
+      - name: Factsheet laden, pruefen und Daten exportieren
         id: run
         run: |
           python scripts/update.py \
             --issue "${{ inputs.issue }}" \
             --split "${{ inputs.split }}" | tee run.log
-          echo "as_of=$(ls data/report_*.html | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
+          echo "as_of=$(ls data/ftse_country_weights_*.csv | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
 
       # Laeuft nur bei gruenem Lauf: fehlgeschlagene Pruefungen duerfen die
       # Zeitreihe nicht verfaelschen. Ist inhaltlich nichts neu (gleicher
@@ -74,24 +81,42 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/*.csv data/run_*.json
           if git diff --cached --quiet; then
-            echo "Keine Aenderung an den CSVs - nichts zu committen."
+            echo "Keine Aenderung an den Daten - nichts zu committen."
             exit 0
           fi
           git commit -m "Zielgewichte ${{ steps.run.outputs.as_of }} (Split ${{ inputs.split }})"
           git push origin "HEAD:${{ github.ref_name }}"
 
-      # Die Seite: alle Stichtage, jeder Report aus den versionierten Daten
-      # neu gebaut, dazu die CSVs und Pruefprotokolle zum Direktabruf.
-      - name: Seite bauen
-        if: success() && inputs.publish
-        run: python scripts/build_site.py --out site
-          echo "Seiteninhalt:" && find site -type f | sort
+      - name: App installieren
+        run: npm ci
+        working-directory: web
 
-      - name: Seite als Pages-Artefakt hochladen
+      - name: App pruefen
+        # svelte-check gegen src/lib/types.ts - die eine Stelle, an der ein in
+        # export_data.py umbenanntes Feld sonst erst als leere Seite auffiele.
+        run: npm run check
+        working-directory: web
+
+      - name: App bauen (fuer GitHub Pages)
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
+        working-directory: web
+
+      - name: Seite als Pages-Artefakt
         if: success() && inputs.publish
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: web/build
+
+      - name: App bauen (zum Durchsehen, ohne Pfadpraefix)
+        # Dieselbe Seite mit leerem base, damit sie sich nach dem Herunterladen
+        # lokal an der Wurzel oeffnen laesst: npx serve preview
+        env:
+          BASE_PATH: ""
+          BUILD_DIR: "../preview"
+        run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
+        working-directory: web
 
       - name: Zusammenfassung
         if: always()
@@ -103,8 +128,10 @@ jobs:
             cat run.log 2>/dev/null || echo "kein Log - Lauf abgebrochen"
             echo '```'
             echo
-            echo "Report und Daten liegen als Artefakt **portfolio-report** an diesem Lauf."
+            echo "Zum Durchsehen: Artefakt **portfolio-report** herunterladen,"
+            echo "entpacken und \`npx serve preview\` (oder \`python3 -m http.server -d preview\`)."
             if [ "${{ inputs.publish }}" = "true" ]; then
+              echo
               echo "Die Veroeffentlichung auf GitHub Pages wartet auf deine Freigabe"
               echo "(Job \`deploy\`, Environment \`github-pages\`)."
             fi
@@ -118,7 +145,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
           path: |
-            data/report_*.html
+            preview
             data/target_weights_*.csv
             data/ftse_country_weights_*.csv
             data/run_*.json
@@ -129,7 +156,7 @@ jobs:
   # 2) Veroeffentlichen. Haengt am Environment `github-pages`; sind dort
   #    "Required reviewers" hinterlegt, bleibt dieser Job stehen, bis du im
   #    Actions-Lauf auf "Review deployments" -> "Approve and deploy" klickst.
-  #    Bis dahin ist auf der Seite weiterhin der vorige Report zu sehen.
+  #    Bis dahin ist auf der Seite weiterhin der vorige Stand zu sehen.
   # ---------------------------------------------------------------------------
   deploy:
     needs: report
