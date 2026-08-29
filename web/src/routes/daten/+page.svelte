@@ -2,6 +2,7 @@
 	import { base } from '$app/paths';
 	import { day } from '$lib/format';
 	import { stampOf } from '$lib/data';
+	import Leer from '$lib/Leer.svelte';
 
 	let { data } = $props();
 </script>
@@ -10,7 +11,10 @@
 	<title>Daten</title>
 </svelte:head>
 
-<h2>Daten zum Herunterladen</h2>
+{#if data.index.stichtage.length === 0}
+	<Leer />
+{:else}
+	<h2>Daten zum Herunterladen</h2>
 <p class="lead">
 	Die geprüften Rohdaten des Factsheets, aus denen diese Seite rechnet: je Land die
 	Gewichte nach Marktkapitalisierung und nach BIP. Sie liegen versioniert im
@@ -43,7 +47,8 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
+	</div>
+{/if}
 
 <style>
 	.lead {

@@ -65,6 +65,9 @@ python scripts/parse_factsheet.py <pdf>                 # nur CSV + run.json
 python scripts/export_data.py --out web/static          # nur exportieren
 ```
 
+Vor dem ersten Lauf ist `data/` leer – die Seite sagt das dann auch, statt einen
+Fehler zu zeigen. Den ersten Stichtag erzeugt der erste Lauf.
+
 ## Die Seite
 
 * **Startseite** – der neueste Stichtag: Kennzahlen, Prüfungen, die 15 größten

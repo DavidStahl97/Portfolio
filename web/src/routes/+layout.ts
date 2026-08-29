@@ -11,9 +11,9 @@ export const trailingSlash = 'always';
 
 export const load: LayoutLoad = async ({ fetch }) => {
 	const res = await fetch(`${base}/data/index.json`);
-	if (!res.ok)
-		throw new Error(
-			`data/index.json fehlt (${res.status}) - erst \`python scripts/export_data.py\` laufen lassen.`
-		);
+	// Vor dem ersten Lauf gibt es noch keine Daten. Das ist kein Fehler, sondern ein
+	// Zustand - die Seiten zeigen dann, was zu tun ist, statt einer 500.
+	if (res.status === 404) return { index: { generated: '', stichtage: [] } as Index };
+	if (!res.ok) throw new Error(`data/index.json nicht lesbar (${res.status}).`);
 	return { index: (await res.json()) as Index };
 };
