@@ -1,5 +1,5 @@
-/* Palette und Flaechen. Die drei Serienfarben sind gegen Farbfehlsichtigkeit und
-   Kontrast geprueft (blau / orange / aqua, in beiden Modi eigene Stufen). */
+/* Palette and surfaces. The series colours are checked against colour vision
+   deficiency and contrast (blue / orange / aqua, with their own steps in both modes). */
 :root {
 	color-scheme: light;
 	--plane: #f9f9f7;

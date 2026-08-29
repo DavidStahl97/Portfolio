@@ -1,7 +1,7 @@
 import { base } from '$app/paths';
 import type { Report } from './types';
 
-/** Laedt einen Stichtag. `stamp` ist YYYYMMDD, so heissen die Dateien. */
+/** Loads one as-of date. `stamp` is YYYYMMDD, that is how the files are named. */
 export async function loadReport(
 	fetcher: typeof fetch,
 	stamp: string

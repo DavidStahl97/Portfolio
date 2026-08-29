@@ -1,23 +1,23 @@
-/** Die Mischung des Portfolios - der einzige Knopf, der etwas ausrechnet.
+/** The portfolio mix - the only knob that computes anything.
  *
- *  Sie gehoert der Ansicht, nicht den Daten: Python liefert nur die Rohgewichte des
- *  Factsheets, gemischt wird hier. Der Wert gilt fuer alle Seiten und ueberlebt den
- *  Wechsel des Stichtags; im Browser gemerkt, damit er auch den naechsten Besuch
- *  ueberlebt. */
+ *  It belongs to the view, not to the data: Python only delivers the raw weights of
+ *  the factsheet, the blending happens here. The value applies to every page and
+ *  survives a change of the as-of date; it is remembered in the browser so that it
+ *  survives the next visit too. */
 export const DEFAULT_SPLIT = 0.5;
 
 const KEY = 'portfolio.split';
 
 function stored(): number {
 	try {
-		// Vorsicht: Number(null) ist 0, nicht NaN - ohne diese Abfrage stuende der
-		// Regler beim ersten Besuch auf 0 statt auf der Standardmischung.
+		// Careful: Number(null) is 0, not NaN - without this check the slider would
+		// sit at 0 on the first visit instead of at the default mix.
 		const raw = localStorage.getItem(KEY);
 		if (raw === null) return DEFAULT_SPLIT;
 		const v = Number(raw);
 		return Number.isFinite(v) && v >= 0 && v <= 1 ? v : DEFAULT_SPLIT;
 	} catch {
-		return DEFAULT_SPLIT; // privates Fenster, blockierte Site-Daten
+		return DEFAULT_SPLIT; // private window, blocked site data
 	}
 }
 
@@ -27,6 +27,6 @@ export function remember(v: number) {
 	try {
 		localStorage.setItem(KEY, String(v));
 	} catch {
-		/* nicht schlimm - dann gilt der Wert nur fuer diesen Besuch */
+		/* no harm - the value then only applies to this visit */
 	}
 }

@@ -2,6 +2,6 @@ node_modules/
 build/
 .svelte-kit/
 
-# von export_data.py geschrieben; static/favicon.svg dagegen ist Quelle
+# written by export_data.py; static/favicon.svg on the other hand is a source file
 static/data/
 static/csv/

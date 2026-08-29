@@ -1,12 +1,12 @@
-name: Seite bauen
+name: Build site
 description: >
-  Exportiert die versionierten Daten, prueft und baut die App und laedt sie als
-  Artefakt hoch - ohne Pfadpraefix, damit sie sich nach dem Herunterladen lokal
-  an der Wurzel oeffnen laesst.
+  Exports the versioned data, checks and builds the app and uploads it as an
+  artifact - without a path prefix, so that it can be opened locally at the root
+  after downloading.
 
 inputs:
   name:
-    description: Name des Artefakts
+    description: Name of the artifact
     required: true
 
 runs:
@@ -23,25 +23,25 @@ runs:
         cache: npm
         cache-dependency-path: web/package-lock.json
 
-    - name: Abhaengigkeiten installieren
+    - name: Install dependencies
       shell: bash
       run: pip install -r requirements.txt
 
-    - name: Daten exportieren
+    - name: Export data
       shell: bash
       run: python scripts/export_data.py --out web/static
 
-    - name: App installieren
+    - name: Install the app
       shell: bash
       run: npm ci
       working-directory: web
 
-    - name: App pruefen
+    - name: Check the app
       shell: bash
       run: npm run check
       working-directory: web
 
-    - name: App bauen
+    - name: Build the app
       shell: bash
       env:
         BASE_PATH: ""
@@ -49,16 +49,16 @@ runs:
       run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
       working-directory: web
 
-    - name: Anleitung in die Zusammenfassung
+    - name: Instructions into the summary
       shell: bash
       run: |
         {
-          echo "## Seite zum Durchsehen"
+          echo "## Site for review"
           echo
-          echo "Artefakt **${{ inputs.name }}** herunterladen, entpacken und servieren:"
+          echo "Download the artifact **${{ inputs.name }}**, unpack it and serve it:"
           echo
           echo '```bash'
-          echo "npx serve preview        # oder: python3 -m http.server -d preview"
+          echo "npx serve preview        # or: python3 -m http.server -d preview"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 

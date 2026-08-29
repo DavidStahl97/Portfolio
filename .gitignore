@@ -2,10 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 
-# Generierte Ausgaben. Die CSVs und run_*.json sind bewusst versioniert: aus ihnen
-# baut export_data.py die Daten der App, und git log data/ ist die
-# Rebalancing-Historie. Das Factsheet-PDF ist Wegwerfdatum und liegt als
-# Actions-Artefakt.
+# Generated output. The CSVs and run_*.json are versioned on purpose: export_data.py
+# builds the data of the app from them, and git log data/ is the rebalancing history.
+# The factsheet PDF is a throwaway file and is kept as an Actions artifact.
 /data/factsheets/
 run.log
 /preview/

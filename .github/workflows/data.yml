@@ -1,0 +1,119 @@
+name: Fetch data
+
+# The monthly run. Fetches the factsheet, checks it and presents the result as a
+# pull request - merging is done by hand, and the merge publishes the site
+# (see pages.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "FTSE issue name of the factsheet"
+        required: false
+        default: "GDPWLDS"
+
+permissions: {}
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  data:
+    name: Fetch the factsheet and open a pull request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create and push a branch
+      pull-requests: write   # open a pull request
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch and check the factsheet
+        id: run
+        # Exits with code 1 on a failed check; then neither a branch nor a pull
+        # request is created.
+        run: |
+          python scripts/update.py --issue "${{ inputs.issue }}" --no-export | tee run.log
+          echo "as_of=$(ls data/ftse_country_weights_*.csv | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
+
+      - name: Branch, commit, push
+        id: commit
+        run: |
+          stamp="${{ steps.run.outputs.as_of }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/*.csv data/run_*.json
+          if git diff --cached --quiet; then
+            echo "The as-of date $stamp is already in the repository unchanged - nothing to do."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git switch -c "data/$stamp"
+          git commit -m "Factsheet data $stamp"
+          # After the shallow checkout we do not know the branch; without this
+          # fetch --force-with-lease fails with "stale info".
+          git fetch origin "data/$stamp" || true
+          git push -u origin "data/$stamp" --force-with-lease
+          echo "new=true" >> "$GITHUB_OUTPUT"
+
+      # The pull request is opened with the GITHUB_TOKEN, and a pull request
+      # opened that way triggers no further workflows - so pr.yml does not run
+      # here. That is why this run builds the site itself.
+      - uses: ./.github/actions/build-site
+        if: steps.commit.outputs.new == 'true'
+        with:
+          name: site-${{ steps.run.outputs.as_of }}
+
+      - name: Open a pull request
+        if: steps.commit.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stamp="${{ steps.run.outputs.as_of }}"
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "Checked raw data of the FTSE factsheet for the as-of date \`$stamp\`."
+            echo
+            echo "The finished site with this as-of date is available as the artifact **site-$stamp**"
+            echo "on the [run that opened this pull request]($run_url) — download it,"
+            echo "unpack it and run \`npx serve preview\`."
+            echo
+            echo "Merging it takes it live."
+            echo
+            echo "<details><summary>Log of the run</summary>"
+            echo
+            echo '```'
+            cat run.log
+            echo '```'
+            echo
+            echo "</details>"
+          } > pr.md
+          # An open pull request for this as-of date has just received new commits
+          # - a second one would be a mistake.
+          if [ -n "$(gh pr list --head "data/$stamp" --state open --json number --jq '.[0].number')" ]; then
+            echo "The pull request for data/$stamp is already open and has been updated."
+            exit 0
+          fi
+          gh pr create \
+            --base main \
+            --head "data/$stamp" \
+            --title "Factsheet data $stamp" \
+            --body-file pr.md
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Fetch data"
+            echo
+            echo '```'
+            cat run.log 2>/dev/null || echo "no log - run aborted"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

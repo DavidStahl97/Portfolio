@@ -1,24 +1,24 @@
-/** Der Datenvertrag mit scripts/export_data.py.
+/** The data contract with scripts/export_data.py.
  *
- * Jedes Feld hier wird von diesem Skript geschrieben und von sonst nichts. Ein auf der
- * Python-Seite umbenanntes Feld, das hier nicht mitgezogen wird, ist genau der Fehler,
- * der sonst erst als leere Seite auffaellt - dafuer gibt es diese Datei. `npm run check`
- * laeuft in CI.
+ * Every field here is written by that script and by nothing else. A field renamed on
+ * the Python side that is not changed along here is exactly the mistake that would
+ * otherwise only show up as an empty page - that is what this file is for.
+ * `npm run check` runs in CI.
  */
 
-/** Eine Pruefung aus parse_factsheet.py, so wie sie beim Lauf protokolliert wurde. */
+/** One check from parse_factsheet.py, as it was recorded during the run. */
 export interface Check {
 	name: string;
 	passed: boolean;
 	detail: string;
 }
 
-/** Ein Land zum Stichtag. Gewichte in Prozent, Marktkapitalisierung in Mio. USD. */
+/** One country at an as-of date. Weights in percent, market cap in USD millions. */
 export interface Country {
 	country: string;
-	/** FTSE All-World: Gewicht nach Marktkapitalisierung */
+	/** FTSE All-World: weight by market capitalisation */
 	mcap: number;
-	/** FTSE All-World GDP Weighted: Gewicht nach BIP */
+	/** FTSE All-World GDP Weighted: weight by GDP */
 	gdp: number;
 	consMcap: number;
 	consGdp: number;
@@ -33,8 +33,8 @@ export interface Totals {
 	netMcap: number;
 }
 
-/** Ein Stichtag mit allem, was der Report zeigt. Rohdaten des Factsheets plus das
- *  Protokoll ihrer Pruefung - gewichtet wird erst in der App. */
+/** One as-of date with everything the report shows. The raw factsheet data plus the
+ *  record of their checks - the weighting happens in the app. */
 export interface Report {
 	asOf: string;
 	ok: boolean;
@@ -43,15 +43,15 @@ export interface Report {
 	countries: Country[];
 }
 
-export interface Stichtag {
+export interface AsOfDate {
 	asOf: string;
 	ok: boolean;
 	countries: number;
 }
 
 export interface Index {
-	/** Zeitpunkt des Datenexports, ISO-8601 */
+	/** time of the data export, ISO 8601 */
 	generated: string;
-	/** neuester zuerst */
-	stichtage: Stichtag[];
+	/** newest first */
+	dates: AsOfDate[];
 }
