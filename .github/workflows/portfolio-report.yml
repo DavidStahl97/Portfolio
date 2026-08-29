@@ -9,16 +9,12 @@ name: Portfolio-Report
 on:
   workflow_dispatch:
     inputs:
-      split:
-        description: "Anteil Marktkapitalisierung (0.5 = 50/50)"
-        required: false
-        default: "0.5"
       issue:
         description: "FTSE IssueName des Factsheets"
         required: false
         default: "GDPWLDS"
       commit:
-        description: "Aktualisierte CSVs zurueck ins Repo committen"
+        description: "Gepruefte Rohdaten zurueck ins Repo committen"
         type: boolean
         required: false
         default: true
@@ -66,14 +62,12 @@ jobs:
       - name: Factsheet laden, pruefen und Daten exportieren
         id: run
         run: |
-          python scripts/update.py \
-            --issue "${{ inputs.issue }}" \
-            --split "${{ inputs.split }}" | tee run.log
+          python scripts/update.py --issue "${{ inputs.issue }}" | tee run.log
           echo "as_of=$(ls data/ftse_country_weights_*.csv | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
 
-      # Laeuft nur bei gruenem Lauf: fehlgeschlagene Pruefungen duerfen die
-      # Zeitreihe nicht verfaelschen. Ist inhaltlich nichts neu (gleicher
-      # Stichtag, gleiche Zahlen), entsteht auch kein Commit.
+      # Laeuft nur bei gruenem Lauf: ungepruefte Zahlen duerfen nicht in die
+      # Zeitreihe. Ist inhaltlich nichts neu (gleicher Stichtag, gleiche Zahlen),
+      # entsteht auch kein Commit.
       - name: Zeitreihe committen
         if: success() && inputs.commit
         run: |
@@ -84,7 +78,7 @@ jobs:
             echo "Keine Aenderung an den Daten - nichts zu committen."
             exit 0
           fi
-          git commit -m "Zielgewichte ${{ steps.run.outputs.as_of }} (Split ${{ inputs.split }})"
+          git commit -m "Factsheet-Daten ${{ steps.run.outputs.as_of }}"
           git push origin "HEAD:${{ github.ref_name }}"
 
       - name: App installieren
@@ -146,7 +140,6 @@ jobs:
           retention-days: 90
           path: |
             preview
-            data/target_weights_*.csv
             data/ftse_country_weights_*.csv
             data/run_*.json
             data/factsheets/*.pdf

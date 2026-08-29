@@ -2,7 +2,13 @@
 
 Länder-Zielgewichte für ein Weltportfolio, das je zur Hälfte nach
 Marktkapitalisierung und nach Bruttoinlandsprodukt (BIP, kaufkraftbereinigt)
-gewichtet ist – als Zeitreihe im Repository und als Seite im Browser.
+gewichtet ist.
+
+**Die Arbeitsteilung ist die Hauptsache an diesem Projekt:** Python holt die
+Rohdaten aus dem Factsheet und prüft sie – mehr nicht. Gewichtet wird
+ausschließlich in der App, im Browser, mit einem Regler. Damit gibt es keine
+zweite Stelle, an der eine Mischung „festgelegt" wäre, und keine gerechneten
+Zahlen im Repository, die zu den Rohdaten nicht mehr passen könnten.
 
 ## Datenquelle
 
@@ -20,19 +26,19 @@ Download-Endpunkt liefert immer die neueste Ausgabe.
 
 ## Was wo lebt
 
-Python lädt, prüft und rechnet; es schreibt weder Markup noch Stylesheet noch
-Skript. Alles, was es erzeugt, sind Daten – und die App unter `web/` macht daraus
-die Seite. Damit entstehen neue Diagramme im Browser aus vorhandenen Daten,
-ohne dass ein Lauf nötig wäre.
+Python **liest und prüft**; es rechnet nichts aus und schreibt weder Markup noch
+Stylesheet noch Skript. Was es erzeugt, sind die Rohdaten des Factsheets und das
+Protokoll ihrer Prüfung. Die App unter `web/` macht daraus die Seite – und sie
+ist die einzige Stelle, an der gewichtet wird.
 
 | Datei | Aufgabe |
 |---|---|
 | `scripts/fetch_factsheet.py` | lädt das aktuelle Factsheet-PDF |
 | `scripts/parse_factsheet.py` | parst die Ländertabelle, prüft sie, schreibt CSV + `run_*.json` |
-| `scripts/build_portfolio.py` | 50/50-Mix (Split frei wählbar), Δ zum Vorlauf |
-| `scripts/export_data.py` | schreibt aus den versionierten Daten `web/static/data/` |
-| `scripts/update.py` | Gesamtlauf: laden → parsen → prüfen → rechnen → exportieren |
+| `scripts/export_data.py` | formt die versionierten Daten nach `web/static/data/` um (ohne zu rechnen) |
+| `scripts/update.py` | Gesamtlauf: laden → parsen → prüfen → exportieren |
 | `web/` | die Single-Page-App (SvelteKit, `adapter-static`) |
+| `web/src/lib/weights.ts` | **die einzige Stelle, an der das Portfolio gewichtet wird** |
 | `web/src/lib/types.ts` | der Datenvertrag zu `export_data.py` – beide Seiten zusammen ändern |
 
 ## Bedienung
@@ -40,8 +46,7 @@ ohne dass ein Lauf nötig wäre.
 ```bash
 pip install -r requirements.txt
 
-python scripts/update.py                 # Download → Prüfen → Zielgewichte → Export
-python scripts/update.py --split 0.6     # 60 % MCap / 40 % BIP
+python scripts/update.py                 # Download → Prüfen → Export
 python scripts/update.py --pdf data/factsheets/GDPWLDS_20260731.pdf   # ohne Netz
 
 npm ci --prefix web
@@ -57,8 +62,6 @@ Einzelschritte, falls gewünscht:
 ```bash
 python scripts/fetch_factsheet.py                       # nur PDF laden
 python scripts/parse_factsheet.py <pdf>                 # nur CSV + run.json
-python scripts/build_portfolio.py --split 0.5           # nur Gewichte rechnen
-python scripts/build_portfolio.py --min-weight 0.5      # Kleinstpositionen kappen
 python scripts/export_data.py --out web/static          # nur exportieren
 ```
 
@@ -71,9 +74,10 @@ python scripts/export_data.py --out web/static          # nur exportieren
   Vorgänger, nicht mit dem neuesten Stand.
 * **Verlauf** – Zielgewicht der acht größten Länder über alle Stichtage.
 * **Daten** – alle Stichtage mit ihren CSVs zum Herunterladen.
-* **Mischungsregler** – der Split ist im Browser verstellbar, die Seite rechnet
-  sofort neu. Die versionierten CSVs bleiben davon unberührt: sie tragen die
-  Mischung, mit der der Lauf gerechnet hat.
+* **Mischungsregler** – Standard 50/50, frei verstellbar; die Seite rechnet
+  sofort neu. Die Einstellung gilt für alle Seiten, überlebt den Wechsel des
+  Stichtags und wird im Browser gemerkt. Sie berührt die Daten nicht: im
+  Repository stehen nur die ungewichteten Rohzahlen.
 
 ## Ausgaben
 
@@ -84,14 +88,15 @@ Factsheet-PDF ist ein Wegwerfdatum und liegt als Actions-Artefakt.
 | Datei | Inhalt |
 |---|---|
 | `data/ftse_country_weights_<date>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
-| `data/target_weights_<date>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vorlauf |
 | `data/run_<date>.json` | Totals und Prüfergebnisse des Laufs |
 | `data/factsheets/<issue>_<date>.pdf` | Original-Factsheet (nicht versioniert) |
 
 ## Prüfungen
 
-`parse_factsheet.py` bricht mit Exit-Code 1 ab (und `update.py` rechnet dann
-nicht weiter), wenn eine dieser Prüfungen fehlschlägt:
+Die Prüfung der Rohdaten ist die zweite Aufgabe von Python, und die einzige
+Stelle, an der ein Lauf scheitern kann. `parse_factsheet.py` bricht mit
+Exit-Code 1 ab (und `update.py` exportiert dann nichts), wenn eine dieser
+Prüfungen fehlschlägt:
 
 1. Summe der Konstituenten aller Länder == `Totals`-Zeile (beide Indizes, exakt)
 2. Summe der Net MCap aller Länder == `Totals` (beide Indizes, rel. Toleranz 1e-6)
@@ -109,11 +114,11 @@ auch für jeden früheren Stichtag.
 
 ## GitHub Action mit Freigabe
 
-**Actions → „Portfolio-Report" → Run workflow.** Eingaben: `split`, `issue`,
-`commit`, `publish`. Der Workflow besteht aus zwei Jobs:
+**Actions → „Portfolio-Report" → Run workflow.** Eingaben: `issue`, `commit`,
+`publish`. Der Workflow besteht aus zwei Jobs:
 
-1. **`report`** – lädt, prüft, rechnet, committet die Daten, baut die App und
-   legt sie als Artefakt ab. Läuft ohne Freigabe durch.
+1. **`report`** – lädt, prüft, committet die Rohdaten, baut die App und legt sie
+   als Artefakt ab. Läuft ohne Freigabe durch.
 2. **`deploy`** – veröffentlicht die Seite auf GitHub Pages.
 
 Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
@@ -127,8 +132,8 @@ Pfadpräfix:
 npx serve preview          # oder: python3 -m http.server -d preview
 ```
 
-Bei grünem Lauf committet die Action die aktualisierten CSVs und `run_*.json`
-zurück auf den Branch, auf dem sie lief (per Eingabe `commit` abschaltbar).
+Bei grünem Lauf committet die Action die geprüften Rohdaten (CSV und
+`run_*.json`) zurück auf den Branch, auf dem sie lief (per Eingabe `commit` abschaltbar).
 Ändert sich inhaltlich nichts, entsteht auch kein Commit; bei fehlgeschlagener
 Prüfung wird nichts committet, damit die Zeitreihe sauber bleibt. Mit
 `publish = false` läuft `deploy` gar nicht erst an.

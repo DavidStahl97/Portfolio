@@ -33,11 +33,10 @@ export interface Totals {
 	netMcap: number;
 }
 
-/** Ein Stichtag mit allem, was der Report zeigt. */
+/** Ein Stichtag mit allem, was der Report zeigt. Rohdaten des Factsheets plus das
+ *  Protokoll ihrer Pruefung - gewichtet wird erst in der App. */
 export interface Report {
 	asOf: string;
-	/** der Split, mit dem der Lauf gerechnet hat (0.5 = 50/50) */
-	split: number;
 	ok: boolean;
 	totals: Totals;
 	checks: Check[];
@@ -46,7 +45,6 @@ export interface Report {
 
 export interface Stichtag {
 	asOf: string;
-	split: number;
 	ok: boolean;
 	countries: number;
 }

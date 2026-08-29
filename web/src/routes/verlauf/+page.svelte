@@ -1,15 +1,11 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import History from '$lib/History.svelte';
 	import SplitSlider from '$lib/SplitSlider.svelte';
+	import { mix } from '$lib/split.svelte';
 
 	let { data } = $props();
 
-	const configured = $derived(data.reports.at(-1)?.split ?? 0.5);
-	let split = $state(untrack(() => data.reports.at(-1)?.split ?? 0.5));
-	$effect(() => {
-		split = configured;
-	});
+	const split = $derived(mix.split);
 </script>
 
 <svelte:head>
@@ -17,7 +13,7 @@
 </svelte:head>
 
 <h2>Mischung</h2>
-<SplitSlider bind:split {configured} />
+<SplitSlider />
 
 <h2>Zielgewicht über die Stichtage</h2>
 {#if data.reports.length > 1}

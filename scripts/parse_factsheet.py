@@ -194,13 +194,12 @@ def meta_path(csv_path: Path) -> Path:
                               ).with_suffix(".json")
 
 
-def write_meta(fs: Factsheet, path: Path, split: float | None = None) -> None:
-    """Totals und Prüfergebnisse sichern - damit laesst sich der Report zu
-    jedem Stichtag spaeter allein aus CSV + JSON neu aufbauen, ohne das PDF."""
+def write_meta(fs: Factsheet, path: Path) -> None:
+    """Totals und Prüfergebnisse sichern - alles, was die CSV nicht traegt. Damit ist
+    ein Stichtag allein aus CSV + JSON vollstaendig, ohne das PDF."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "as_of": fs.as_of.isoformat(),
-        "split": split,
         "totals": {
             "cons_gdp": fs.totals.cons_gdp, "mcap_gdp": fs.totals.mcap_gdp,
             "wgt_gdp": fs.totals.wgt_gdp, "cons_mc": fs.totals.cons_mc,
@@ -212,7 +211,7 @@ def write_meta(fs: Factsheet, path: Path, split: float | None = None) -> None:
                     encoding="utf-8")
 
 
-def load_run(csv_path: Path) -> tuple[Factsheet, float | None]:
+def load_run(csv_path: Path) -> Factsheet:
     """Baut ein Factsheet aus CSV + JSON-Metadaten wieder auf."""
     with csv_path.open(encoding="utf-8") as fh:
         recs = list(csv.DictReader(fh))
@@ -229,7 +228,7 @@ def load_run(csv_path: Path) -> tuple[Factsheet, float | None]:
         totals=Row(country="Totals", **t),
         checks=[(c["name"], c["passed"], c["detail"]) for c in meta["checks"]],
     )
-    return fs, meta.get("split")
+    return fs
 
 
 def print_report(fs: Factsheet) -> None:

@@ -1,22 +1,32 @@
 <script lang="ts">
-	let {
-		split = $bindable(),
-		configured
-	}: { split: number; configured: number } = $props();
+	import { DEFAULT_SPLIT, mix, remember } from '$lib/split.svelte';
 
 	const fmt = (v: number) => `${Math.round(v * 100)} %`;
+
+	function set(v: number) {
+		mix.split = v;
+		remember(v);
+	}
 </script>
 
 <div class="card split">
 	<label for="split">
-		Mischung <strong>{fmt(split)}</strong> Marktkapitalisierung /
-		<strong>{fmt(1 - split)}</strong> BIP
+		<strong>{fmt(mix.split)}</strong> Marktkapitalisierung /
+		<strong>{fmt(1 - mix.split)}</strong> BIP
 	</label>
-	<input id="split" type="range" min="0" max="1" step="0.05" bind:value={split} />
-	{#if Math.abs(split - configured) > 0.001}
-		<button onclick={() => (split = configured)}>zurück auf {fmt(configured)}</button>
+	<input
+		id="split"
+		type="range"
+		min="0"
+		max="1"
+		step="0.05"
+		value={mix.split}
+		oninput={(e) => set(Number(e.currentTarget.value))}
+	/>
+	{#if Math.abs(mix.split - DEFAULT_SPLIT) > 0.001}
+		<button onclick={() => set(DEFAULT_SPLIT)}>zurück auf {fmt(DEFAULT_SPLIT)}</button>
 	{:else}
-		<span class="muted">so gerechnet und in der CSV abgelegt</span>
+		<span class="muted">die Standardmischung</span>
 	{/if}
 </div>
 
@@ -27,7 +37,6 @@
 		gap: 16px;
 		flex-wrap: wrap;
 		padding: 12px 20px;
-		margin-bottom: 12px;
 	}
 	label {
 		color: var(--ink-2);

@@ -12,8 +12,9 @@
 
 <h2>Daten zum Herunterladen</h2>
 <p class="lead">
-	Dieselben Dateien, aus denen diese Seite gebaut ist. Sie liegen versioniert im
-	Repository, jede Zeile ist ein Land.
+	Die geprüften Rohdaten des Factsheets, aus denen diese Seite rechnet: je Land die
+	Gewichte nach Marktkapitalisierung und nach BIP. Sie liegen versioniert im
+	Repository.
 </p>
 
 <div class="card scroll">
@@ -21,11 +22,9 @@
 		<thead>
 			<tr>
 				<th>Stichtag</th>
-				<th>Mischung</th>
 				<th>Länder</th>
 				<th>Prüfung</th>
-				<th>Zielgewichte</th>
-				<th>Rohdaten</th>
+				<th>Rohdaten des Factsheets</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -33,14 +32,12 @@
 				{@const stamp = stampOf(s.asOf)}
 				<tr>
 					<td><a href="{base}/stichtage/{stamp}/">{day(s.asOf)}</a></td>
-					<td>{Math.round(s.split * 100)} / {Math.round((1 - s.split) * 100)}</td>
 					<td>{s.countries}</td>
 					<td>
 						<span class="status" class:ok={s.ok} class:fail={!s.ok}>
 							<span class="dot"></span>{s.ok ? 'OK' : 'FEHLER'}
 						</span>
 					</td>
-					<td><a href="{base}/csv/target_weights_{stamp}.csv" download>CSV</a></td>
 					<td><a href="{base}/csv/ftse_country_weights_{stamp}.csv" download>CSV</a></td>
 				</tr>
 			{/each}

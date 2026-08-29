@@ -1,8 +1,9 @@
-"""Schreibt aus den versionierten Daten das, woraus die App gebaut wird.
+"""Schreibt aus den versionierten Rohdaten das, woraus die App gebaut wird.
 
     python scripts/export_data.py --out web/static
 
-Python liest, prüft und rechnet; Markup, Stylesheet und Skript entstehen hier nicht.
+Hier wird nur umgeformt, nicht gerechnet: die Gewichtung des Portfolios entsteht in
+der App. Markup, Stylesheet und Skript entstehen hier ohnehin nicht.
 Alles unter `web/static/data/` ist Datei für Datei das, was `web/src/lib/types.ts`
 beschreibt – die andere Seite desselben Vertrags, und sie muss mitgezogen werden, wenn
 sich hier ein Feldname ändert.
@@ -28,10 +29,9 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
 
 
-def report_payload(fs, split: float) -> dict:
+def report_payload(fs) -> dict:
     return {
         "asOf": fs.as_of.isoformat(),
-        "split": split,
         "ok": fs.ok,
         "totals": {
             "consGdp": fs.totals.cons_gdp,
@@ -58,8 +58,6 @@ def report_payload(fs, split: float) -> dict:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=REPO / "web" / "static")
-    ap.add_argument("--split", type=float, default=0.5,
-                    help="Fallback, falls run_<date>.json keinen Split enthält")
     args = ap.parse_args(argv)
 
     runs = []
@@ -67,33 +65,27 @@ def main(argv: list[str] | None = None) -> int:
         if not parse_factsheet.meta_path(path).exists():
             print(f"übersprungen (kein run_*.json): {path.name}")
             continue
-        fs, split = parse_factsheet.load_run(path)
-        runs.append((fs, split if split is not None else args.split))
+        runs.append(parse_factsheet.load_run(path))
     if not runs:
         raise SystemExit(
             "Keine auswertbaren Stichtage in data/ - erst `python scripts/update.py` laufen lassen."
         )
 
-    runs.sort(key=lambda r: r[0].as_of, reverse=True)     # neuester zuerst
+    runs.sort(key=lambda fs: fs.as_of, reverse=True)      # neuester zuerst
     out = args.out / "data"
     out.mkdir(parents=True, exist_ok=True)
 
-    for fs, split in runs:
+    for fs in runs:
         stamp = f"{fs.as_of:%Y%m%d}"
         (out / f"{stamp}.json").write_text(
-            json.dumps(report_payload(fs, split), ensure_ascii=False) + "\n", encoding="utf-8"
+            json.dumps(report_payload(fs), ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
     index = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "stichtage": [
-            {
-                "asOf": fs.as_of.isoformat(),
-                "split": split,
-                "ok": fs.ok,
-                "countries": len(fs.rows),
-            }
-            for fs, split in runs
+            {"asOf": fs.as_of.isoformat(), "ok": fs.ok, "countries": len(fs.rows)}
+            for fs in runs
         ],
     }
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n",
@@ -106,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         (csvs / src.name).write_bytes(src.read_bytes())
 
     print(f"{len(runs)} Stichtag(e) nach {out} exportiert, "
-          f"neuester {runs[0][0].as_of:%d.%m.%Y}")
+          f"neuester {runs[0].as_of:%d.%m.%Y}")
     return 0
 
 

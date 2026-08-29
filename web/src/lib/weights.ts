@@ -3,9 +3,8 @@ import type { Country } from './types';
 /** Zielgewicht je Land: split * Marktkapitalisierung + (1 - split) * BIP, auf 100 %
  *  normiert.
  *
- *  Dieselbe Formel steht in scripts/build_portfolio.py, das die CSV-Zeitreihe schreibt -
- *  bewusst doppelt: Python ist die Quelle der versionierten Zahlen, hier wird gerechnet,
- *  damit der Split im Browser verstellbar ist, ohne dass ein neuer Lauf noetig waere. */
+ *  Das ist die einzige Stelle im Projekt, an der das Portfolio gewichtet wird. Python
+ *  liefert nur die geprueften Rohgewichte des Factsheets. */
 export function targets(countries: Country[], split: number): Map<string, number> {
 	const blended = countries.map((c) => [c.country, split * c.mcap + (1 - split) * c.gdp] as const);
 	const sum = blended.reduce((a, [, w]) => a + w, 0);
