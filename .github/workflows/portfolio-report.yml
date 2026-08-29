@@ -17,9 +17,20 @@ on:
         description: "FTSE IssueName des Factsheets"
         required: false
         default: "GDPWLDS"
+      commit:
+        description: "Aktualisierte CSVs zurueck ins Repo committen"
+        type: boolean
+        required: false
+        default: true
 
+# Schreibrecht nur fuer den Commit der CSV-Zeitreihe.
 permissions:
-  contents: read
+  contents: write
+
+# Zwei parallele Laeufe wuerden sich beim Zurueckpushen in die Quere kommen.
+concurrency:
+  group: portfolio-report-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   report:
@@ -42,6 +53,22 @@ jobs:
             --issue "${{ inputs.issue }}" \
             --split "${{ inputs.split }}" | tee run.log
           echo "as_of=$(ls data/report_*.html | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
+
+      # Laeuft nur bei gruenem Lauf: fehlgeschlagene Pruefungen duerfen die
+      # Zeitreihe nicht verfaelschen. Ist inhaltlich nichts neu (gleicher
+      # Stichtag, gleiche Zahlen), entsteht auch kein Commit.
+      - name: Zeitreihe committen
+        if: success() && inputs.commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/*.csv
+          if git diff --cached --quiet; then
+            echo "Keine Aenderung an den CSVs - nichts zu committen."
+            exit 0
+          fi
+          git commit -m "Zielgewichte ${{ steps.run.outputs.as_of }} (Split ${{ inputs.split }})"
+          git push origin "HEAD:${{ github.ref_name }}"
 
       - name: Zusammenfassung
         if: always()

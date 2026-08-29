@@ -61,8 +61,10 @@ Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
 
 ## Ausgaben
 
-`data/` ist nicht versioniert (`.gitignore`) – alles darin wird bei jedem Lauf
-neu erzeugt. Aus der Action kommen die Dateien als Artefakt am jeweiligen Lauf.
+Die **CSVs sind versioniert**: sie sind die Zeitreihe der Zielgewichte, `git log
+data/` ist damit die Rebalancing-Historie. Das Factsheet-PDF und der HTML-Report
+sind Wegwerfdaten (bei jedem Lauf reproduzierbar) und stehen in `.gitignore` –
+aus der Action kommen sie als Artefakt am jeweiligen Lauf.
 
 | Datei | Inhalt |
 |---|---|
@@ -71,12 +73,10 @@ neu erzeugt. Aus der Action kommen die Dateien als Artefakt am jeweiligen Lauf.
 | `data/target_weights_<YYYYMMDD>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vormonat |
 | `data/report_<YYYYMMDD>.html` | Report zum Lauf (auch einzeln: `scripts/render_report.py <pdf>`) |
 
-Die Δ-Spalte vergleicht mit dem zuletzt erzeugten `target_weights_*.csv` im
-`data/`-Ordner und zeigt damit direkt den Rebalancing-Bedarf. Lokal funktioniert
-das über die Läufe hinweg; in der Action steht dort „neu", weil jeder Lauf mit
-einem frischen Checkout startet. Wer die Δ-Spalte auch in CI braucht, lädt im
-Workflow vorher das Artefakt des letzten Laufs nach `data/` – oder versioniert
-die CSVs bewusst und lässt die Action sie zurückcommitten.
+Die Δ-Spalte vergleicht mit dem zuletzt erzeugten `target_weights_*.csv` und
+zeigt damit direkt den Rebalancing-Bedarf – lokal wie in der Action, da die CSVs
+im Repo liegen und beim Checkout mitkommen. Sie ist bewusst neutral eingefärbt:
+ein steigendes Ländergewicht ist weder gut noch schlecht.
 
 ## Prüfungen
 

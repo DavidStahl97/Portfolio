@@ -84,7 +84,7 @@ tfoot td { font-weight:600; border-top:2px solid var(--baseline); border-bottom:
 .minibar { display:inline-block; height:8px; border-radius:0 3px 3px 0; background:var(--s1); vertical-align:middle; }
 .checks td:first-child { white-space:normal; }
 .foot { color:var(--ink-muted); font-size:12px; margin-top:36px; }
-.pos { color:var(--good); } .neg { color:var(--critical); }
+.muted { color:var(--ink-muted); }
 """
 
 
@@ -179,11 +179,13 @@ def build(fs: Factsheet, split: float, prev: dict[str, float]) -> str:
         cum += tw
         p = prev.get(r.country)
         if p is None:
-            delta = "<span style='color:var(--ink-muted)'>neu</span>"
+            delta = "<span class=muted>neu</span>"
+        elif abs(tw - p) < 0.005:
+            delta = "<span class=muted>&ndash;</span>"
         else:
-            d = tw - p
-            cls = "pos" if d > 0.005 else "neg" if d < -0.005 else ""
-            delta = f"<span class='{cls}'>{d:+.2f}".replace(".", ",") + "</span>"
+            # Bewusst neutral eingefaerbt: ein steigendes Laendergewicht ist
+            # weder gut noch schlecht, nur Rebalancing-Bedarf.
+            delta = f"{tw - p:+.2f}".replace(".", ",")
         a(f"<tr><td>{_esc(r.country)}</td><td>{_fmt(r.wgt_mc)}</td><td>{_fmt(r.wgt_gdp)}</td>"
           f"<td><strong>{_fmt(tw)}</strong></td><td>{_fmt(cum)}</td><td>{delta}</td>"
           f"<td style='width:120px'><span class=minibar style='width:{100*tw/tmax:.1f}%'></span></td></tr>")

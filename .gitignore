@@ -2,7 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 
-# Generierte Ausgaben - werden bei jedem Lauf neu erzeugt und liegen
-# ansonsten als Artefakt am jeweiligen Actions-Lauf.
-/data/
+# Generierte Ausgaben. Die CSVs sind bewusst versioniert - sie sind die
+# Zeitreihe der Zielgewichte (git log data/ = Rebalancing-Historie).
+# PDF und HTML-Report sind Wegwerfdaten und liegen als Actions-Artefakt.
+/data/factsheets/
+/data/report_*.html
 run.log
