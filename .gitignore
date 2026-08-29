@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .venv/
+
+# Generierte Ausgaben - werden bei jedem Lauf neu erzeugt und liegen
+# ansonsten als Artefakt am jeweiligen Actions-Lauf.
+/data/
+run.log
