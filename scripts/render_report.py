@@ -85,6 +85,24 @@ tfoot td { font-weight:600; border-top:2px solid var(--baseline); border-bottom:
 .checks td:first-child { white-space:normal; }
 .foot { color:var(--ink-muted); font-size:12px; margin-top:36px; }
 .foot a { color:var(--s1); }
+.stichtage {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  margin:0 0 28px; padding:10px 14px; background:var(--surface);
+  border:1px solid var(--ring); border-radius:10px;
+}
+.stichtage .navlabel {
+  color:var(--ink-muted); font-size:12px; text-transform:uppercase;
+  letter-spacing:.04em; margin-right:4px;
+}
+.stichtage a {
+  padding:3px 9px; border-radius:6px; text-decoration:none;
+  color:var(--s1); font-variant-numeric:tabular-nums;
+}
+.stichtage a:hover { background:color-mix(in srgb, var(--ink) 6%, transparent); }
+.stichtage a.current {
+  color:var(--ink); font-weight:600;
+  background:color-mix(in srgb, var(--ink) 8%, transparent);
+}
 .muted { color:var(--ink-muted); }
 """
 
@@ -98,7 +116,11 @@ def _esc(s: str) -> str:
 
 
 def build(fs: Factsheet, split: float, prev: dict[str, float],
-          site: bool = False) -> str:
+          nav: list[tuple[str, str, bool]] | None = None,
+          data_prefix: str | None = None) -> str:
+    """nav: (Beschriftung, href, ist_aktuelle_Seite) je Stichtag.
+    data_prefix: Pfad zu den CSVs relativ zur erzeugten Datei; None = keine
+    Downloadlinks (lokaler Einzelreport)."""
     rows = sorted(fs.rows, key=lambda r: r.country)
     blended = {r.country: split * r.wgt_mc + (1 - split) * r.wgt_gdp for r in rows}
     total = sum(blended.values())
@@ -123,6 +145,13 @@ def build(fs: Factsheet, split: float, prev: dict[str, float],
     a(f"<p class=sub>FTSE All-World GDP Weighted Factsheet &middot; "
       f"{split:.0%} Marktkapitalisierung / {1 - split:.0%} BIP &middot; "
       f"erzeugt {dt.datetime.now():%d.%m.%Y %H:%M} UTC</p>")
+
+    if nav:
+        a("<nav class=stichtage><span class=navlabel>Stichtag</span>")
+        for label, href, current in nav:
+            a(f"<a class=current>{_esc(label)}</a>" if current
+              else f"<a href='{_esc(href)}'>{_esc(label)}</a>")
+        a("</nav>")
 
     # --- Kennzahlen ---
     usa = target.get("USA")
@@ -196,12 +225,11 @@ def build(fs: Factsheet, split: float, prev: dict[str, float],
       f"<td></td><td></td><td></td></tr>")
     a("</tbody></table></div>")
 
-    if site:
-        # Auf der Pages-Seite liegen die CSVs unter data/ neben der Startseite.
-        a(f"<p class=foot>Daten zum Herunterladen: "
-          f"<a href='data/target_weights_{fs.as_of:%Y%m%d}.csv'>Zielgewichte</a> &middot; "
-          f"<a href='data/ftse_country_weights_{fs.as_of:%Y%m%d}.csv'>Rohdaten des Factsheets</a>"
-          f" (&Auml;ltere Stichtage: gleiche Dateinamen mit anderem Datum.)</p>")
+    if data_prefix is not None:
+        a(f"<p class=foot>Daten zu diesem Stichtag: "
+          f"<a href='{data_prefix}target_weights_{fs.as_of:%Y%m%d}.csv'>Zielgewichte</a> &middot; "
+          f"<a href='{data_prefix}ftse_country_weights_{fs.as_of:%Y%m%d}.csv'>Rohdaten des Factsheets</a>"
+          f" &middot; <a href='{data_prefix}run_{fs.as_of:%Y%m%d}.json'>Prüfprotokoll</a></p>")
     a("<p class=foot>Quelle: FTSE Russell, FTSE All-World GDP Weighted Index Factsheet. "
       "Die &Delta;-Spalte vergleicht mit dem zuletzt erzeugten target_weights_*.csv. "
       "Keine Anlageberatung.</p>")
@@ -223,15 +251,15 @@ def main() -> int:
     ap.add_argument("pdf", type=Path)
     ap.add_argument("--split", type=float, default=0.5)
     ap.add_argument("--out", type=Path, default=None)
-    ap.add_argument("--site", action="store_true",
-                    help="Downloadlinks fuer die Pages-Seite ergaenzen")
+    ap.add_argument("--data-prefix", default=None,
+                    help="Pfad zu den CSVs relativ zur Ausgabe, z.B. 'data/'")
     args = ap.parse_args()
 
     fs = parse_factsheet.parse(args.pdf)
     out = args.out or DATA / f"report_{fs.as_of:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build(fs, args.split, load_prev(fs.as_of), site=args.site),
-                   encoding="utf-8")
+    out.write_text(build(fs, args.split, load_prev(fs.as_of),
+                         data_prefix=args.data_prefix), encoding="utf-8")
     print(f"Report: {out}")
     return 0 if fs.ok else 1
 

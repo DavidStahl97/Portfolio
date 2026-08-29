@@ -65,8 +65,29 @@ Der Workflow besteht aus zwei Jobs:
 
 1. **`report`** – lädt, prüft, rechnet, committet die CSVs und legt alles als
    Artefakt ab. Läuft ohne Freigabe durch.
-2. **`deploy`** – veröffentlicht den Report als Startseite auf GitHub Pages,
-   daneben die komplette CSV-Zeitreihe unter `data/`.
+2. **`deploy`** – veröffentlicht die Seite auf GitHub Pages.
+
+Die Seite zeigt **alle Stichtage**, nicht nur den aktuellen:
+
+```
+index.html            neuester Report
+reports/<date>.html   je Stichtag, über die Leiste oben erreichbar
+data/                 CSVs und Prüfprotokolle zum Direktabruf
+```
+
+`scripts/build_site.py` baut jeden Report bei jedem Lauf aus den versionierten
+Daten neu – `ftse_country_weights_<date>.csv` plus `run_<date>.json` (Totals und
+Prüfergebnisse). Das PDF wird dafür nicht gebraucht. So wächst die Historie auf
+der Seite automatisch mit, ohne dass generiertes HTML im Repo liegt. Die
+Δ-Spalte jedes Reports vergleicht mit seinem jeweiligen Vorgänger, nicht mit
+dem neuesten Stand.
+
+Lokal ansehen:
+
+```bash
+python scripts/build_site.py --out site
+python -m http.server -d site 8000
+```
 
 Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
 reviewers** hinterlegt, bleibt `deploy` stehen und wartet: im Actions-Lauf
@@ -87,7 +108,7 @@ Mit `publish = false` beim Start läuft der Job `deploy` gar nicht erst an.
 
 ## Ausgaben
 
-Die **CSVs sind versioniert**: sie sind die Zeitreihe der Zielgewichte, `git log
+Die **CSVs und `run_*.json` sind versioniert**: sie sind die Zeitreihe der Zielgewichte, `git log
 data/` ist damit die Rebalancing-Historie. Das Factsheet-PDF und der HTML-Report
 sind Wegwerfdaten (bei jedem Lauf reproduzierbar) und stehen in `.gitignore` –
 aus der Action kommen sie als Artefakt am jeweiligen Lauf.
@@ -97,6 +118,7 @@ aus der Action kommen sie als Artefakt am jeweiligen Lauf.
 | `data/factsheets/GDPWLDS_<YYYYMMDD>.pdf` | Original-Factsheet (Archiv/Nachvollziehbarkeit) |
 | `data/ftse_country_weights_<YYYYMMDD>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
 | `data/target_weights_<YYYYMMDD>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vormonat |
+| `data/run_<YYYYMMDD>.json` | Totals und Prüfergebnisse des Laufs (versioniert, für den Neubau der Historie) |
 | `data/report_<YYYYMMDD>.html` | Report zum Lauf (auch einzeln: `scripts/render_report.py <pdf>`) |
 
 Die Δ-Spalte vergleicht mit dem zuletzt erzeugten `target_weights_*.csv` und

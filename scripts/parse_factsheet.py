@@ -14,6 +14,7 @@ import argparse
 import csv
 import datetime as dt
 import io
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -187,6 +188,50 @@ def write_csv(fs: Factsheet, path: Path) -> None:
                         x.cons_mc, x.mcap_mc, f"{x.wgt_mc:.2f}"])
 
 
+def meta_path(csv_path: Path) -> Path:
+    """data/ftse_country_weights_20260731.csv -> data/run_20260731.json"""
+    return csv_path.with_name(csv_path.name.replace("ftse_country_weights_", "run_")
+                              ).with_suffix(".json")
+
+
+def write_meta(fs: Factsheet, path: Path, split: float | None = None) -> None:
+    """Totals und Prüfergebnisse sichern - damit laesst sich der Report zu
+    jedem Stichtag spaeter allein aus CSV + JSON neu aufbauen, ohne das PDF."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "as_of": fs.as_of.isoformat(),
+        "split": split,
+        "totals": {
+            "cons_gdp": fs.totals.cons_gdp, "mcap_gdp": fs.totals.mcap_gdp,
+            "wgt_gdp": fs.totals.wgt_gdp, "cons_mc": fs.totals.cons_mc,
+            "mcap_mc": fs.totals.mcap_mc, "wgt_mc": fs.totals.wgt_mc,
+        },
+        "checks": [{"name": n, "passed": p, "detail": d} for n, p, d in fs.checks],
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
+
+
+def load_run(csv_path: Path) -> tuple[Factsheet, float | None]:
+    """Baut ein Factsheet aus CSV + JSON-Metadaten wieder auf."""
+    with csv_path.open(encoding="utf-8") as fh:
+        recs = list(csv.DictReader(fh))
+    rows = [Row(country=r["country"],
+                cons_gdp=int(r["cons_gdp"]), mcap_gdp=int(r["net_mcap_usdm_gdp"]),
+                wgt_gdp=float(r["weight_gdp_pct"]),
+                cons_mc=int(r["cons_mcap"]), mcap_mc=int(r["net_mcap_usdm_mcap"]),
+                wgt_mc=float(r["weight_mcap_pct"])) for r in recs]
+    meta = json.loads(meta_path(csv_path).read_text(encoding="utf-8"))
+    t = meta["totals"]
+    fs = Factsheet(
+        as_of=dt.date.fromisoformat(meta["as_of"]),
+        rows=rows,
+        totals=Row(country="Totals", **t),
+        checks=[(c["name"], c["passed"], c["detail"]) for c in meta["checks"]],
+    )
+    return fs, meta.get("split")
+
+
 def print_report(fs: Factsheet) -> None:
     print(f"Stichtag: {fs.as_of:%d.%m.%Y} | Länder: {len(fs.rows)}")
     print("Prüfungen:")
@@ -203,6 +248,7 @@ def main() -> int:
     fs = parse(args.pdf)
     out = args.out or REPO / "data" / f"ftse_country_weights_{fs.as_of:%Y%m%d}.csv"
     write_csv(fs, out)
+    write_meta(fs, meta_path(out))
     print_report(fs)
     print(f"CSV: {out}")
     return 0 if fs.ok else 1

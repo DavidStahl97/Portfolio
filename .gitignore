@@ -2,9 +2,10 @@ __pycache__/
 *.pyc
 .venv/
 
-# Generierte Ausgaben. Die CSVs sind bewusst versioniert - sie sind die
-# Zeitreihe der Zielgewichte (git log data/ = Rebalancing-Historie).
-# PDF und HTML-Report sind Wegwerfdaten und liegen als Actions-Artefakt.
+# Generierte Ausgaben. Die CSVs und run_*.json sind bewusst versioniert: aus
+# ihnen wird die komplette Report-Historie der Pages-Seite neu gebaut, und
+# git log data/ ist die Rebalancing-Historie. PDF und HTML-Report sind
+# Wegwerfdaten und liegen als Actions-Artefakt.
 /data/factsheets/
 /data/report_*.html
 run.log

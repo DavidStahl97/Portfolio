@@ -46,6 +46,7 @@ def main() -> int:
     fs = parse_factsheet.parse(source)
     csv_path = REPO / "data" / f"ftse_country_weights_{fs.as_of:%Y%m%d}.csv"
     parse_factsheet.write_csv(fs, csv_path)
+    parse_factsheet.write_meta(fs, parse_factsheet.meta_path(csv_path), split=args.split)
     parse_factsheet.print_report(fs)
     print(f"    {csv_path.relative_to(REPO)}")
 

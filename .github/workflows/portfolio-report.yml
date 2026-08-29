@@ -72,7 +72,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/*.csv
+          git add data/*.csv data/run_*.json
           if git diff --cached --quiet; then
             echo "Keine Aenderung an den CSVs - nichts zu committen."
             exit 0
@@ -80,17 +80,11 @@ jobs:
           git commit -m "Zielgewichte ${{ steps.run.outputs.as_of }} (Split ${{ inputs.split }})"
           git push origin "HEAD:${{ github.ref_name }}"
 
-      # Die Seite: der Report als Startseite, daneben die komplette
-      # CSV-Zeitreihe zum Direktabruf.
-      - name: Seite zusammenstellen
+      # Die Seite: alle Stichtage, jeder Report aus den versionierten Daten
+      # neu gebaut, dazu die CSVs und Pruefprotokolle zum Direktabruf.
+      - name: Seite bauen
         if: success() && inputs.publish
-        run: |
-          mkdir -p site/data
-          cp data/*.csv site/data/
-          # Startseite neu rendern, damit sie die Downloadlinks auf site/data/ traegt
-          python scripts/render_report.py \
-            "data/factsheets/${{ inputs.issue }}_${{ steps.run.outputs.as_of }}.pdf" \
-            --split "${{ inputs.split }}" --site --out site/index.html
+        run: python scripts/build_site.py --out site
           echo "Seiteninhalt:" && find site -type f | sort
 
       - name: Seite als Pages-Artefakt hochladen
@@ -127,6 +121,7 @@ jobs:
             data/report_*.html
             data/target_weights_*.csv
             data/ftse_country_weights_*.csv
+            data/run_*.json
             data/factsheets/*.pdf
             run.log
 
