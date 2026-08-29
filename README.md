@@ -38,6 +38,27 @@ python scripts/build_portfolio.py --min-weight 0.5      # Kleinstpositionen kapp
                                                         # Rest auf 100 % normieren
 ```
 
+## GitHub Action (manuell anstoßen)
+
+**Actions → „Portfolio-Report" → Run workflow.** Zwei optionale Eingaben:
+`split` (Default `0.5`) und `issue` (Default `GDPWLDS`).
+
+Der Lauf macht genau das, was `scripts/update.py` lokal tut – Factsheet laden,
+parsen, prüfen, Zielgewichte rechnen – und hängt alles als Artefakt
+**`portfolio-report-<YYYYMMDD>`** an den Lauf:
+
+* `report_<YYYYMMDD>.html` – der Report (eine Datei, keine externen Ressourcen,
+  hell/dunkel), mit Prüfstatus, Kennzahlen, Balkendiagramm der 15 größten
+  Positionen und vollständiger Ländertabelle inkl. Δ zum Vorlauf
+* die beiden CSVs und das Original-PDF
+* `run.log`, dessen Inhalt zusätzlich in der Job-Summary steht
+
+Schlägt eine Prüfung fehl, **endet der Job rot, der Report wird aber trotzdem
+erzeugt und hochgeladen** – er ist dann genau das Dokument, das zeigt, welche
+Prüfung gerissen ist. Zielgewichte werden in dem Fall nicht berechnet.
+
+Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
+
 ## Ausgaben
 
 | Datei | Inhalt |
@@ -45,6 +66,7 @@ python scripts/build_portfolio.py --min-weight 0.5      # Kleinstpositionen kapp
 | `data/factsheets/GDPWLDS_<YYYYMMDD>.pdf` | Original-Factsheet (Archiv/Nachvollziehbarkeit) |
 | `data/ftse_country_weights_<YYYYMMDD>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
 | `data/target_weights_<YYYYMMDD>.csv` | Zielgewicht je Land, kumuliert, Δ zum Vormonat |
+| `data/report_<YYYYMMDD>.html` | Report zum Lauf (auch einzeln: `scripts/render_report.py <pdf>`) |
 
 Die Δ-Spalte vergleicht mit dem zuletzt erzeugten `target_weights_*.csv` und
 zeigt damit direkt den Rebalancing-Bedarf.

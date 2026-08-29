@@ -1,10 +1,10 @@
-"""Parst die Laender-Aufstellung aus dem FTSE-Factsheet-PDF in eine CSV.
+"""Parst die Länder-Aufstellung aus dem FTSE-Factsheet-PDF in eine CSV.
 
 Das Factsheet enthaelt beide Gewichtungen nebeneinander:
   - FTSE All-World GDP Weighted  -> BIP-Gewicht
   - FTSE All-World               -> Marktkapitalisierungs-Gewicht
 
-Jeder Parse-Lauf wird geprueft (Summe aller Laender vs. Totals-Zeile im PDF);
+Jeder Parse-Lauf wird geprüft (Summe aller Länder vs. Totals-Zeile im PDF);
 bei Abweichung ausserhalb der Toleranz endet das Skript mit Exit-Code 1.
 """
 
@@ -33,7 +33,7 @@ DATE_RE = re.compile(r"Data as at:\s*(\d{1,2}\s+\w+\s+\d{4})")
 
 # Toleranzen: die Wgt-Spalten sind auf 2 Nachkommastellen gerundet, d.h. pro
 # Land bis zu 0.005 Prozentpunkte Rundungsfehler.
-WGT_TOL_PP = 0.5     # Prozentpunkte, Summe Laender vs. 100.00
+WGT_TOL_PP = 0.5     # Prozentpunkte, Summe Länder vs. 100.00
 MCAP_TOL_REL = 1e-6  # relative Abweichung der Net-MCap-Summe
 
 
@@ -121,7 +121,7 @@ def parse(pdf: bytes | Path) -> Factsheet:
             rows.append(row)
 
     if totals is None:
-        raise ValueError("Totals-Zeile nicht gefunden - PDF-Layout hat sich geaendert?")
+        raise ValueError("Totals-Zeile nicht gefunden - PDF-Layout hat sich geändert?")
 
     fs = Factsheet(as_of=as_of, rows=rows, totals=totals)
     _validate(fs)
@@ -135,7 +135,7 @@ def _check(fs: Factsheet, name: str, passed: bool, detail: str) -> None:
 def _validate(fs: Factsheet) -> None:
     r, t = fs.rows, fs.totals
 
-    _check(fs, "Anzahl Laender plausibel", len(r) >= 30, f"{len(r)} Laender geparst")
+    _check(fs, "Anzahl Länder plausibel", len(r) >= 30, f"{len(r)} Länder geparst")
 
     for label, attr, tot in (
         ("Konstituenten GDP", "cons_gdp", t.cons_gdp),
@@ -158,18 +158,18 @@ def _validate(fs: Factsheet) -> None:
         ("Gewichte MCap", "wgt_mc", t.wgt_mc),
     ):
         s = sum(getattr(x, attr) for x in r)
-        _check(fs, f"Summe {label} == 100%", abs(s - tot) <= WGT_TOL_PP,
+        _check(fs, f"Summe {label} == 100 %", abs(s - tot) <= WGT_TOL_PP,
                f"{s:.2f} vs. {tot:.2f} (Delta {s - tot:+.2f} pp)")
 
     # Gewicht muss dem MCap-Anteil entsprechen (unabhaengige Gegenprobe)
     worst = max(
         (abs(x.wgt_gdp - 100 * x.mcap_gdp / t.mcap_gdp) for x in r), default=0.0
     )
-    _check(fs, "Wgt% konsistent mit Net MCap (GDP)", worst <= 0.02,
+    _check(fs, "Wgt % konsistent mit Net MCap (GDP)", worst <= 0.02,
            f"max. Abweichung {worst:.3f} pp")
 
     dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
-    _check(fs, "Keine doppelten Laender", not dupes, ", ".join(sorted(dupes)) or "-")
+    _check(fs, "Keine doppelten Länder", not dupes, ", ".join(sorted(dupes)) or "-")
 
 
 def write_csv(fs: Factsheet, path: Path) -> None:
@@ -188,8 +188,8 @@ def write_csv(fs: Factsheet, path: Path) -> None:
 
 
 def print_report(fs: Factsheet) -> None:
-    print(f"Stichtag: {fs.as_of:%d.%m.%Y} | Laender: {len(fs.rows)}")
-    print("Pruefungen:")
+    print(f"Stichtag: {fs.as_of:%d.%m.%Y} | Länder: {len(fs.rows)}")
+    print("Prüfungen:")
     for name, passed, detail in fs.checks:
         print(f"  [{'OK ' if passed else 'FEHL'}] {name}: {detail}")
 

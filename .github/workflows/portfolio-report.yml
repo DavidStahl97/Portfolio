@@ -1,0 +1,71 @@
+name: Portfolio-Report
+
+# Manuell startbar (Actions -> Portfolio-Report -> Run workflow).
+# Der Zeitplan ist bewusst auskommentiert - die BIP-Gewichte aendern sich nur
+# beim jaehrlichen FTSE-Review im Maerz, ein monatlicher Lauf reicht voellig:
+# on:
+#   schedule:
+#     - cron: "0 6 5 * *"   # 5. jedes Monats, 06:00 UTC
+on:
+  workflow_dispatch:
+    inputs:
+      split:
+        description: "Anteil Marktkapitalisierung (0.5 = 50/50)"
+        required: false
+        default: "0.5"
+      issue:
+        description: "FTSE IssueName des Factsheets"
+        required: false
+        default: "GDPWLDS"
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Abhaengigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Factsheet laden, pruefen und Report erzeugen
+        id: run
+        run: |
+          python scripts/update.py \
+            --issue "${{ inputs.issue }}" \
+            --split "${{ inputs.split }}" | tee run.log
+          echo "as_of=$(ls data/report_*.html | tail -1 | grep -oE '[0-9]{8}')" >> "$GITHUB_OUTPUT"
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          {
+            echo "## Portfolio-Report"
+            echo
+            echo '```'
+            cat run.log 2>/dev/null || echo "kein Log - Lauf abgebrochen"
+            echo '```'
+            echo
+            echo "Der vollstaendige HTML-Report liegt als Artefakt **portfolio-report** unter diesem Lauf."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Artefakt hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-report${{ steps.run.outputs.as_of && format('-{0}', steps.run.outputs.as_of) || '' }}
+          if-no-files-found: warn
+          retention-days: 90
+          path: |
+            data/report_*.html
+            data/target_weights_*.csv
+            data/ftse_country_weights_*.csv
+            data/factsheets/*.pdf
+            run.log

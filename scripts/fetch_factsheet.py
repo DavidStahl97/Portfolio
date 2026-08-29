@@ -31,7 +31,7 @@ def fetch(issue: str = DEFAULT_ISSUE, timeout: int = 60) -> bytes:
     if not data.startswith(b"%PDF"):
         raise SystemExit(
             f"Antwort ist kein PDF (Content-Type: {resp.headers.get('content-type')}, "
-            f"{len(data)} Bytes) - Endpunkt oder IssueName pruefen."
+            f"{len(data)} Bytes) - Endpunkt oder IssueName prüfen."
         )
     return data
 
@@ -53,7 +53,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     if out.exists() and hashlib.md5(out.read_bytes()).hexdigest() == hashlib.md5(data).hexdigest():
-        print(f"unveraendert: {out.relative_to(REPO)}")
+        print(f"unverändert: {out.relative_to(REPO)}")
     else:
         out.write_bytes(data)
         print(f"gespeichert:  {out.relative_to(REPO)} ({len(data)} Bytes)")

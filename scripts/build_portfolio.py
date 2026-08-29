@@ -4,7 +4,7 @@ Gewicht_Land = split * Marktkap.-Gewicht + (1 - split) * BIP-Gewicht
 
 Ausgabe: data/target_weights_<YYYYMMDD>.csv, absteigend sortiert, inkl.
 Kumulativspalte und - falls eine Vorperiode existiert - der Veraenderung
-gegenueber dem letzten Lauf.
+gegenüber dem letzten Lauf.
 """
 
 from __future__ import annotations
@@ -45,11 +45,11 @@ def previous_targets(exclude: Path) -> dict[str, float]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--csv", type=Path, default=None, help="Laender-CSV aus parse_factsheet.py")
+    ap.add_argument("--csv", type=Path, default=None, help="Länder-CSV aus parse_factsheet.py")
     ap.add_argument("--split", type=float, default=0.5,
                     help="Anteil Marktkapitalisierung (0.5 = 50/50, Default)")
     ap.add_argument("--min-weight", type=float, default=0.0,
-                    help="Laender unter diesem Zielgewicht (%%) ausblenden und Rest normieren")
+                    help="Länder unter diesem Zielgewicht (%%) ausblenden und Rest normieren")
     args = ap.parse_args()
 
     if not 0.0 <= args.split <= 1.0:
@@ -65,7 +65,7 @@ def main() -> int:
         blended = {c: w for c, w in blended.items() if w >= args.min_weight}
     total = sum(blended.values())
     if total <= 0:
-        raise SystemExit("Summe der Gewichte ist 0 - Eingabedaten pruefen.")
+        raise SystemExit("Summe der Gewichte ist 0 - Eingabedaten prüfen.")
     normed = {c: 100.0 * w / total for c, w in blended.items()}
 
     prev = None
@@ -88,7 +88,7 @@ def main() -> int:
 
     print(f"Quelle: {src.name} | Stichtag {as_of:%d.%m.%Y} | "
           f"Split {args.split:.0%} MCap / {1 - args.split:.0%} BIP")
-    print(f"Summe Zielgewichte: {sum(normed.values()):.2f}% ueber {len(normed)} Laender")
+    print(f"Summe Zielgewichte: {sum(normed.values()):.2f}% über {len(normed)} Länder")
     print("\nTop 15:")
     print(f"  {'Land':<16}{'MCap%':>8}{'BIP%':>8}{'Ziel%':>8}{'Kum%':>8}")
     cum = 0.0
