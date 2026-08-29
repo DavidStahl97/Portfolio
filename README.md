@@ -66,7 +66,7 @@ python scripts/export_data.py --out web/static          # nur exportieren
 ```
 
 Vor dem ersten Lauf ist `data/` leer – die Seite sagt das dann auch, statt einen
-Fehler zu zeigen. Den ersten Stichtag erzeugt der erste Lauf.
+Fehler zu zeigen. Den ersten Stichtag erzeugt der erste Lauf von „Daten holen".
 
 ## Die Seite
 
@@ -115,41 +115,51 @@ geparste Tabelle sofort auf, statt still ein falsches Portfolio zu erzeugen. Die
 Ergebnisse wandern in `run_*.json` und stehen auf der Seite unter „Prüfungen" –
 auch für jeden früheren Stichtag.
 
-## GitHub Action mit Freigabe
+## Die drei Workflows
 
-**Actions → „Portfolio-Report" → Run workflow.** Eingaben: `issue`, `commit`,
-`publish`. Der Workflow besteht aus zwei Jobs:
+| Datei | Auslöser | Tut |
+|---|---|---|
+| `.github/workflows/pages.yml` | Push auf `main` | baut die Seite aus `data/` und veröffentlicht sie |
+| `.github/workflows/daten.yml` | von Hand | holt das Factsheet, prüft es, öffnet einen Pull Request |
+| `.github/workflows/pr.yml` | Pull Request | baut die Seite und hängt sie als Artefakt an |
 
-1. **`report`** – lädt, prüft, committet die Rohdaten, baut die App und legt sie
-   als Artefakt ab. Läuft ohne Freigabe durch.
-2. **`deploy`** – veröffentlicht die Seite auf GitHub Pages.
+### Der Monatslauf
 
-Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
-reviewers** hinterlegt, bleibt `deploy` stehen: im Actions-Lauf erscheint
-„Review deployments" → „Approve and deploy". Bis dahin ist auf der Seite
-weiterhin der vorige Stand zu sehen. Den neuen siehst du vorher aus dem Artefakt
-desselben Laufs – es enthält den Ordner `preview`, dieselbe Seite ohne
-Pfadpräfix:
+**Actions → „Daten holen" → Run workflow.** Der Lauf
+
+1. lädt das aktuelle Factsheet und **prüft** es – reißt eine Prüfung, endet er
+   hier, ohne Branch und ohne Pull Request,
+2. legt `daten/<YYYYMMDD>` an, committet CSV und `run_*.json`, pusht,
+3. baut die Seite und lädt sie als Artefakt **`seite-<YYYYMMDD>`** hoch,
+4. öffnet den Pull Request und verlinkt das Artefakt darin.
+
+Du lädst das Artefakt herunter, entpackst es und siehst dir die Seite an:
 
 ```bash
 npx serve preview          # oder: python3 -m http.server -d preview
 ```
 
-Bei grünem Lauf committet die Action die geprüften Rohdaten (CSV und
-`run_*.json`) zurück auf den Branch, auf dem sie lief (per Eingabe `commit` abschaltbar).
-Ändert sich inhaltlich nichts, entsteht auch kein Commit; bei fehlgeschlagener
-Prüfung wird nichts committet, damit die Zeitreihe sauber bleibt. Mit
-`publish = false` läuft `deploy` gar nicht erst an.
+Passt es, mergst du. Der Merge löst `pages.yml` aus und die Seite ist live – eine
+gesonderte Freigabe gibt es nicht mehr, **der Merge ist die Freigabe**.
 
-Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
+Liegt der Stichtag schon unverändert im Repository, endet der Lauf ohne Änderung.
+Ist zu diesem Stichtag bereits ein Pull Request offen, bekommt er neue Commits
+statt eines zweiten Pull Requests.
+
+### Code-Änderungen
+
+Jeder Push auf `main` veröffentlicht die Seite neu – auch ohne neue Daten, denn
+sie wird bei jedem Deploy vollständig aus `data/` gebaut. Für Pull Requests mit
+Code-Änderungen baut `pr.yml` dieselbe Seite als Artefakt.
 
 ### Einmalige Einrichtung (in den Repo-Settings, nicht im Code möglich)
 
 1. **Settings → Pages → Source: „GitHub Actions"**
-2. **Settings → Environments → `github-pages` → Required reviewers**: dich
-   selbst eintragen. Ohne diesen Schritt deployt der Job **ohne** Nachfrage.
-3. Optional unter *Deployment branches* den Branch einschränken, von dem aus
-   veröffentlicht werden darf.
+2. **Settings → Actions → General → Workflow permissions**: „Allow GitHub Actions
+   to create and approve pull requests" einschalten – sonst kann `daten.yml`
+   keinen Pull Request öffnen.
+3. Am Environment `github-pages` **keine** Required reviewers eintragen; sonst
+   wartet jeder Deploy zusätzlich auf eine Freigabe.
 
 ## Turnus
 

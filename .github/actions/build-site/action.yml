@@ -1,0 +1,70 @@
+name: Seite bauen
+description: >
+  Exportiert die versionierten Daten, prueft und baut die App und laedt sie als
+  Artefakt hoch - ohne Pfadpraefix, damit sie sich nach dem Herunterladen lokal
+  an der Wurzel oeffnen laesst.
+
+inputs:
+  name:
+    description: Name des Artefakts
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+        cache: npm
+        cache-dependency-path: web/package-lock.json
+
+    - name: Abhaengigkeiten installieren
+      shell: bash
+      run: pip install -r requirements.txt
+
+    - name: Daten exportieren
+      shell: bash
+      run: python scripts/export_data.py --out web/static
+
+    - name: App installieren
+      shell: bash
+      run: npm ci
+      working-directory: web
+
+    - name: App pruefen
+      shell: bash
+      run: npm run check
+      working-directory: web
+
+    - name: App bauen
+      shell: bash
+      env:
+        BASE_PATH: ""
+        BUILD_DIR: "../preview"
+      run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
+      working-directory: web
+
+    - name: Anleitung in die Zusammenfassung
+      shell: bash
+      run: |
+        {
+          echo "## Seite zum Durchsehen"
+          echo
+          echo "Artefakt **${{ inputs.name }}** herunterladen, entpacken und servieren:"
+          echo
+          echo '```bash'
+          echo "npx serve preview        # oder: python3 -m http.server -d preview"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        path: preview
+        if-no-files-found: error
+        retention-days: 30
