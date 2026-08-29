@@ -84,6 +84,7 @@ tfoot td { font-weight:600; border-top:2px solid var(--baseline); border-bottom:
 .minibar { display:inline-block; height:8px; border-radius:0 3px 3px 0; background:var(--s1); vertical-align:middle; }
 .checks td:first-child { white-space:normal; }
 .foot { color:var(--ink-muted); font-size:12px; margin-top:36px; }
+.foot a { color:var(--s1); }
 .muted { color:var(--ink-muted); }
 """
 
@@ -96,7 +97,8 @@ def _esc(s: str) -> str:
     return html.escape(str(s))
 
 
-def build(fs: Factsheet, split: float, prev: dict[str, float]) -> str:
+def build(fs: Factsheet, split: float, prev: dict[str, float],
+          site: bool = False) -> str:
     rows = sorted(fs.rows, key=lambda r: r.country)
     blended = {r.country: split * r.wgt_mc + (1 - split) * r.wgt_gdp for r in rows}
     total = sum(blended.values())
@@ -194,6 +196,12 @@ def build(fs: Factsheet, split: float, prev: dict[str, float]) -> str:
       f"<td></td><td></td><td></td></tr>")
     a("</tbody></table></div>")
 
+    if site:
+        # Auf der Pages-Seite liegen die CSVs unter data/ neben der Startseite.
+        a(f"<p class=foot>Daten zum Herunterladen: "
+          f"<a href='data/target_weights_{fs.as_of:%Y%m%d}.csv'>Zielgewichte</a> &middot; "
+          f"<a href='data/ftse_country_weights_{fs.as_of:%Y%m%d}.csv'>Rohdaten des Factsheets</a>"
+          f" (&Auml;ltere Stichtage: gleiche Dateinamen mit anderem Datum.)</p>")
     a("<p class=foot>Quelle: FTSE Russell, FTSE All-World GDP Weighted Index Factsheet. "
       "Die &Delta;-Spalte vergleicht mit dem zuletzt erzeugten target_weights_*.csv. "
       "Keine Anlageberatung.</p>")
@@ -215,12 +223,15 @@ def main() -> int:
     ap.add_argument("pdf", type=Path)
     ap.add_argument("--split", type=float, default=0.5)
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--site", action="store_true",
+                    help="Downloadlinks fuer die Pages-Seite ergaenzen")
     args = ap.parse_args()
 
     fs = parse_factsheet.parse(args.pdf)
     out = args.out or DATA / f"report_{fs.as_of:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build(fs, args.split, load_prev(fs.as_of)), encoding="utf-8")
+    out.write_text(build(fs, args.split, load_prev(fs.as_of), site=args.site),
+                   encoding="utf-8")
     print(f"Report: {out}")
     return 0 if fs.ok else 1
 

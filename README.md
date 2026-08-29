@@ -59,6 +59,32 @@ Prüfung gerissen ist. Zielgewichte werden in dem Fall nicht berechnet.
 
 Ein monatlicher `schedule`-Trigger liegt auskommentiert im Workflow bereit.
 
+## GitHub Pages mit Freigabe
+
+Der Workflow besteht aus zwei Jobs:
+
+1. **`report`** – lädt, prüft, rechnet, committet die CSVs und legt alles als
+   Artefakt ab. Läuft ohne Freigabe durch.
+2. **`deploy`** – veröffentlicht den Report als Startseite auf GitHub Pages,
+   daneben die komplette CSV-Zeitreihe unter `data/`.
+
+Dazwischen sitzt das Environment `github-pages`. Sind dort **Required
+reviewers** hinterlegt, bleibt `deploy` stehen und wartet: im Actions-Lauf
+erscheint „Review deployments" → „Approve and deploy". Bis dahin ist auf der
+Seite weiterhin der vorige Report zu sehen. Den neuen prüfst du vorher aus dem
+Artefakt desselben Laufs (`report_<YYYYMMDD>.html`, eine Datei, lokal
+öffnenbar). Lehnst du ab, passiert nichts – die Seite bleibt, wie sie war.
+
+Mit `publish = false` beim Start läuft der Job `deploy` gar nicht erst an.
+
+### Einmalige Einrichtung (in den Repo-Settings, nicht im Code möglich)
+
+1. **Settings → Pages → Source: „GitHub Actions"**
+2. **Settings → Environments → `github-pages` → Required reviewers**: dich
+   selbst eintragen. Ohne diesen Schritt deployt der Job **ohne** Nachfrage.
+3. Optional unter *Deployment branches* den Branch einschränken, von dem aus
+   veröffentlicht werden darf.
+
 ## Ausgaben
 
 Die **CSVs sind versioniert**: sie sind die Zeitreihe der Zielgewichte, `git log

@@ -22,19 +22,29 @@ on:
         type: boolean
         required: false
         default: true
+      publish:
+        description: "Report nach Freigabe auf GitHub Pages veroeffentlichen"
+        type: boolean
+        required: false
+        default: true
 
-# Schreibrecht nur fuer den Commit der CSV-Zeitreihe.
-permissions:
-  contents: write
-
-# Zwei parallele Laeufe wuerden sich beim Zurueckpushen in die Quere kommen.
-concurrency:
-  group: portfolio-report-${{ github.ref }}
-  cancel-in-progress: false
+permissions: {}
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 1) Erzeugen. Laeuft ohne Freigabe durch und legt alles als Artefakt ab -
+  #    das ist der Stand, den du vor der Veroeffentlichung pruefst.
+  # ---------------------------------------------------------------------------
   report:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # nur fuer den Commit der CSV-Zeitreihe
+    # Zwei parallele Laeufe wuerden sich beim Zurueckpushen in die Quere kommen.
+    concurrency:
+      group: portfolio-report-${{ github.ref }}
+      cancel-in-progress: false
+    outputs:
+      as_of: ${{ steps.run.outputs.as_of }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +80,25 @@ jobs:
           git commit -m "Zielgewichte ${{ steps.run.outputs.as_of }} (Split ${{ inputs.split }})"
           git push origin "HEAD:${{ github.ref_name }}"
 
+      # Die Seite: der Report als Startseite, daneben die komplette
+      # CSV-Zeitreihe zum Direktabruf.
+      - name: Seite zusammenstellen
+        if: success() && inputs.publish
+        run: |
+          mkdir -p site/data
+          cp data/*.csv site/data/
+          # Startseite neu rendern, damit sie die Downloadlinks auf site/data/ traegt
+          python scripts/render_report.py \
+            "data/factsheets/${{ inputs.issue }}_${{ steps.run.outputs.as_of }}.pdf" \
+            --split "${{ inputs.split }}" --site --out site/index.html
+          echo "Seiteninhalt:" && find site -type f | sort
+
+      - name: Seite als Pages-Artefakt hochladen
+        if: success() && inputs.publish
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
       - name: Zusammenfassung
         if: always()
         run: |
@@ -80,7 +109,11 @@ jobs:
             cat run.log 2>/dev/null || echo "kein Log - Lauf abgebrochen"
             echo '```'
             echo
-            echo "Der vollstaendige HTML-Report liegt als Artefakt **portfolio-report** unter diesem Lauf."
+            echo "Report und Daten liegen als Artefakt **portfolio-report** an diesem Lauf."
+            if [ "${{ inputs.publish }}" = "true" ]; then
+              echo "Die Veroeffentlichung auf GitHub Pages wartet auf deine Freigabe"
+              echo "(Job \`deploy\`, Environment \`github-pages\`)."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Artefakt hochladen
@@ -96,3 +129,27 @@ jobs:
             data/ftse_country_weights_*.csv
             data/factsheets/*.pdf
             run.log
+
+  # ---------------------------------------------------------------------------
+  # 2) Veroeffentlichen. Haengt am Environment `github-pages`; sind dort
+  #    "Required reviewers" hinterlegt, bleibt dieser Job stehen, bis du im
+  #    Actions-Lauf auf "Review deployments" -> "Approve and deploy" klickst.
+  #    Bis dahin ist auf der Seite weiterhin der vorige Report zu sehen.
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: report
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Auf GitHub Pages veroeffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4
