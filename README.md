@@ -70,6 +70,7 @@ python scripts/export_data.py --out web/static          # nur exportieren
   (`/stichtage/20260731/`); die Δ-Spalte vergleicht dort mit dem jeweiligen
   Vorgänger, nicht mit dem neuesten Stand.
 * **Verlauf** – Zielgewicht der acht größten Länder über alle Stichtage.
+* **Daten** – alle Stichtage mit ihren CSVs zum Herunterladen.
 * **Mischungsregler** – der Split ist im Browser verstellbar, die Seite rechnet
   sofort neu. Die versionierten CSVs bleiben davon unberührt: sie tragen die
   Mischung, mit der der Lauf gerechnet hat.

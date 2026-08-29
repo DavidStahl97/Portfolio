@@ -9,6 +9,7 @@
 
 	const current = $derived(page.params.date ?? stampOf(data.index.stichtage[0]?.asOf ?? ''));
 	const verlauf = $derived(page.url.pathname.endsWith('/verlauf/'));
+	const daten = $derived(page.url.pathname.endsWith('/daten/'));
 	const mehrfach = $derived(data.index.stichtage.length > 1);
 </script>
 
@@ -27,21 +28,22 @@
 			{@const stamp = stampOf(s.asOf)}
 			<a
 				href="{base}/stichtage/{stamp}/"
-				class:current={!verlauf && stamp === current}
+				class:current={!verlauf && !daten && stamp === current}
 				title={day(s.asOf)}>{month(s.asOf)}</a
 			>
 		{/each}
+		<span class="sep"></span>
 		{#if mehrfach}
-			<span class="sep"></span>
 			<a href="{base}/verlauf/" class:current={verlauf}>Verlauf</a>
 		{/if}
+		<a href="{base}/daten/" class:current={daten}>Daten</a>
 	</nav>
 
 	{@render children()}
 
 	<footer>
-		Quelle: FTSE Russell, FTSE All-World GDP Weighted Index Factsheet. Daten als CSV unter
-		<a href="{base}/csv/">csv/</a>. Erzeugt aus
+		Quelle: FTSE Russell, FTSE All-World GDP Weighted Index Factsheet.
+		<a href="{base}/daten/">Daten als CSV</a>. Erzeugt aus
 		<a href="https://github.com/{__REPO__}">{__REPO__}</a>{__BUILT__ ? `, Stand ${__BUILT__}` : ''}.
 		Keine Anlageberatung.
 	</footer>
