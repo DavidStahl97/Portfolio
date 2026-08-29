@@ -7,45 +7,45 @@
 
 	let { data, children } = $props();
 
-	const current = $derived(page.params.date ?? stampOf(data.index.stichtage[0]?.asOf ?? ''));
-	const verlauf = $derived(page.url.pathname.endsWith('/verlauf/'));
-	const daten = $derived(page.url.pathname.endsWith('/daten/'));
-	const mehrfach = $derived(data.index.stichtage.length > 1);
+	const current = $derived(page.params.date ?? stampOf(data.index.dates[0]?.asOf ?? ''));
+	const history = $derived(page.url.pathname.endsWith('/history/'));
+	const dataPage = $derived(page.url.pathname.endsWith('/data/'));
+	const several = $derived(data.index.dates.length > 1);
 </script>
 
 <div class="wrap">
 	<header>
-		<h1>Portfolio-Zielgewichte</h1>
+		<h1>Portfolio target weights</h1>
 		<p class="lead">
-			Länder-Gewichte je zur Hälfte nach Marktkapitalisierung und nach Bruttoinlandsprodukt,
-			aus dem Factsheet des FTSE All-World GDP Weighted Index.
+			Country weights, half by market capitalisation and half by gross domestic product,
+			from the factsheet of the FTSE All-World GDP Weighted Index.
 		</p>
 	</header>
 
-	<nav class="stichtage">
-		<span class="navlabel">Stichtag</span>
-		{#each data.index.stichtage as s (s.asOf)}
+	<nav class="dates">
+		<span class="navlabel">As of</span>
+		{#each data.index.dates as s (s.asOf)}
 			{@const stamp = stampOf(s.asOf)}
 			<a
-				href="{base}/stichtage/{stamp}/"
-				class:current={!verlauf && !daten && stamp === current}
+				href="{base}/dates/{stamp}/"
+				class:current={!history && !dataPage && stamp === current}
 				title={day(s.asOf)}>{month(s.asOf)}</a
 			>
 		{/each}
 		<span class="sep"></span>
-		{#if mehrfach}
-			<a href="{base}/verlauf/" class:current={verlauf}>Verlauf</a>
+		{#if several}
+			<a href="{base}/history/" class:current={history}>History</a>
 		{/if}
-		<a href="{base}/daten/" class:current={daten}>Daten</a>
+		<a href="{base}/data/" class:current={dataPage}>Data</a>
 	</nav>
 
 	{@render children()}
 
 	<footer>
-		Quelle: FTSE Russell, FTSE All-World GDP Weighted Index Factsheet.
-		<a href="{base}/daten/">Daten als CSV</a>. Erzeugt aus
-		<a href="https://github.com/{__REPO__}">{__REPO__}</a>{__BUILT__ ? `, Stand ${__BUILT__}` : ''}.
-		Keine Anlageberatung.
+		Source: FTSE Russell, FTSE All-World GDP Weighted Index factsheet.
+		<a href="{base}/data/">Data as CSV</a>. Built from
+		<a href="https://github.com/{__REPO__}">{__REPO__}</a>{__BUILT__ ? `, as of ${__BUILT__}` : ''}.
+		Not investment advice.
 	</footer>
 </div>
 
@@ -60,7 +60,7 @@
 		margin: 0 0 24px;
 		max-width: 62ch;
 	}
-	.stichtage {
+	.dates {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -84,16 +84,16 @@
 		background: var(--grid);
 		margin: 0 4px;
 	}
-	.stichtage a {
+	.dates a {
 		padding: 3px 9px;
 		border-radius: 6px;
 		text-decoration: none;
 		font-variant-numeric: tabular-nums;
 	}
-	.stichtage a:hover {
+	.dates a:hover {
 		background: color-mix(in srgb, var(--ink) 6%, transparent);
 	}
-	.stichtage a.current {
+	.dates a.current {
 		color: var(--ink);
 		font-weight: 600;
 		background: color-mix(in srgb, var(--ink) 8%, transparent);

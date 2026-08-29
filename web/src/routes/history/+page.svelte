@@ -9,15 +9,15 @@
 </script>
 
 <svelte:head>
-	<title>Verlauf der Zielgewichte</title>
+	<title>History of the target weights</title>
 </svelte:head>
 
-<h2>Mischung</h2>
+<h2>Mix</h2>
 <SplitSlider />
 
-<h2>Zielgewicht über die Stichtage</h2>
+<h2>Target weight across the as-of dates</h2>
 {#if data.reports.length > 1}
 	<History reports={data.reports} {split} />
 {:else}
-	<div class="card"><p class="muted">Dafür braucht es mindestens zwei Stichtage.</p></div>
+	<div class="card"><p class="muted">This needs at least two as-of dates.</p></div>
 {/if}

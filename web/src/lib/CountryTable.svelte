@@ -19,12 +19,12 @@
 	<table>
 		<thead>
 			<tr>
-				<th>Land</th>
+				<th>Country</th>
 				<th>MCap&thinsp;%</th>
-				<th>BIP&thinsp;%</th>
-				<th>Ziel&thinsp;%</th>
-				<th>Kumuliert&thinsp;%</th>
-				<th>Δ Vorstichtag&thinsp;pp</th>
+				<th>GDP&thinsp;%</th>
+				<th>Target&thinsp;%</th>
+				<th>Cumulative&thinsp;%</th>
+				<th>Δ previous date&thinsp;pp</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -36,10 +36,10 @@
 					<td>{pct(r.gdp)}</td>
 					<td><strong>{pct(r.target)}</strong></td>
 					<td>{pct(r.cum)}</td>
-					<!-- Bewusst neutral eingefaerbt: ein steigendes Laendergewicht ist weder
-					     gut noch schlecht, nur Rebalancing-Bedarf. -->
+					<!-- Deliberately coloured neutrally: a rising country weight is neither
+					     good nor bad, only a need to rebalance. -->
 					<td class:muted={!prev.has(r.country)}>
-						{prev.has(r.country) ? delta(r.target - (prev.get(r.country) ?? 0)) : 'neu'}
+						{prev.has(r.country) ? delta(r.target - (prev.get(r.country) ?? 0)) : 'new'}
 					</td>
 					<td class="barcell">
 						<span class="minibar" style:width="{(100 * r.target) / max}%"></span>
@@ -49,7 +49,7 @@
 		</tbody>
 		<tfoot>
 			<tr>
-				<td>Summe</td>
+				<td>Total</td>
 				<td>{pct(sum.mcap)}</td>
 				<td>{pct(sum.gdp)}</td>
 				<td>{pct(sum.target)}</td>

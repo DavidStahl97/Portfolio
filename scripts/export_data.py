@@ -1,16 +1,16 @@
-"""Schreibt aus den versionierten Rohdaten das, woraus die App gebaut wird.
+"""Writes what the app is built from, out of the versioned raw data.
 
     python scripts/export_data.py --out web/static
 
-Hier wird nur umgeformt, nicht gerechnet: die Gewichtung des Portfolios entsteht in
-der App. Markup, Stylesheet und Skript entstehen hier ohnehin nicht.
-Alles unter `web/static/data/` ist Datei für Datei das, was `web/src/lib/types.ts`
-beschreibt – die andere Seite desselben Vertrags, und sie muss mitgezogen werden, wenn
-sich hier ein Feldname ändert.
+This only reshapes, it does not compute: the portfolio weighting happens in the app.
+Markup, stylesheet and script are not produced here either.
+Everything under `web/static/data/` is, file by file, what `web/src/lib/types.ts`
+describes - the other side of the same contract, and it has to be changed along
+whenever a field name changes here.
 
-Quelle sind die versionierten `ftse_country_weights_<date>.csv` samt `run_<date>.json`.
-Das Factsheet-PDF wird nicht gebraucht, deshalb lässt sich die komplette Historie
-jederzeit neu exportieren.
+The sources are the versioned `ftse_country_weights_<date>.csv` files together with
+their `run_<date>.json`. The factsheet PDF is not needed, so the whole history can be
+re-exported at any time.
 """
 
 from __future__ import annotations
@@ -63,15 +63,15 @@ def main(argv: list[str] | None = None) -> int:
     runs = []
     for path in sorted(DATA.glob("ftse_country_weights_*.csv")):
         if not parse_factsheet.meta_path(path).exists():
-            print(f"übersprungen (kein run_*.json): {path.name}")
+            print(f"skipped (no run_*.json): {path.name}")
             continue
         runs.append(parse_factsheet.load_run(path))
     if not runs:
         raise SystemExit(
-            "Keine auswertbaren Stichtage in data/ - erst `python scripts/update.py` laufen lassen."
+            "No usable as-of dates in data/ - run `python scripts/update.py` first."
         )
 
-    runs.sort(key=lambda fs: fs.as_of, reverse=True)      # neuester zuerst
+    runs.sort(key=lambda fs: fs.as_of, reverse=True)      # newest first
     out = args.out / "data"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
     index = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "stichtage": [
+        "dates": [
             {"asOf": fs.as_of.isoformat(), "ok": fs.ok, "countries": len(fs.rows)}
             for fs in runs
         ],
@@ -91,14 +91,14 @@ def main(argv: list[str] | None = None) -> int:
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n",
                                     encoding="utf-8")
 
-    # Die CSVs wandern unveraendert mit: die Seite ist zugleich der Datenabruf.
+    # The CSVs are copied over unchanged: the site is also the data download.
     csvs = args.out / "csv"
     csvs.mkdir(parents=True, exist_ok=True)
     for src in sorted(DATA.glob("*.csv")):
         (csvs / src.name).write_bytes(src.read_bytes())
 
-    print(f"{len(runs)} Stichtag(e) nach {out} exportiert, "
-          f"neuester {runs[0].as_of:%d.%m.%Y}")
+    print(f"exported {len(runs)} as-of date(s) to {out}, "
+          f"newest {runs[0].as_of:%Y-%m-%d}")
     return 0
 
 

@@ -1,11 +1,11 @@
-"""Parst die Länder-Aufstellung aus dem FTSE-Factsheet-PDF in eine CSV.
+"""Parses the country breakdown out of the FTSE factsheet PDF into a CSV.
 
-Das Factsheet enthaelt beide Gewichtungen nebeneinander:
-  - FTSE All-World GDP Weighted  -> BIP-Gewicht
-  - FTSE All-World               -> Marktkapitalisierungs-Gewicht
+The factsheet carries both weightings side by side:
+  - FTSE All-World GDP Weighted  -> GDP weight
+  - FTSE All-World               -> market capitalisation weight
 
-Jeder Parse-Lauf wird geprüft (Summe aller Länder vs. Totals-Zeile im PDF);
-bei Abweichung ausserhalb der Toleranz endet das Skript mit Exit-Code 1.
+Every parse run is checked (sum over all countries vs. the Totals row in the PDF);
+if a deviation exceeds the tolerance, the script exits with code 1.
 """
 
 from __future__ import annotations
@@ -32,10 +32,10 @@ ROW_RE = re.compile(
 )
 DATE_RE = re.compile(r"Data as at:\s*(\d{1,2}\s+\w+\s+\d{4})")
 
-# Toleranzen: die Wgt-Spalten sind auf 2 Nachkommastellen gerundet, d.h. pro
-# Land bis zu 0.005 Prozentpunkte Rundungsfehler.
-WGT_TOL_PP = 0.5     # Prozentpunkte, Summe Länder vs. 100.00
-MCAP_TOL_REL = 1e-6  # relative Abweichung der Net-MCap-Summe
+# Tolerances: the Wgt columns are rounded to two decimals, i.e. up to 0.005
+# percentage points of rounding error per country.
+WGT_TOL_PP = 0.5     # percentage points, sum over countries vs. 100.00
+MCAP_TOL_REL = 1e-6  # relative deviation of the net mcap sum
 
 
 @dataclass
@@ -77,7 +77,7 @@ def extract_as_of_date(pdf: bytes | Path) -> dt.date:
         m = DATE_RE.search(text)
         if m:
             return dt.datetime.strptime(m.group(1), "%d %B %Y").date()
-    raise ValueError("Kein 'Data as at:'-Datum im PDF gefunden.")
+    raise ValueError("No 'Data as at:' date found in the PDF.")
 
 
 def _to_row(m: re.Match) -> Row:
@@ -102,11 +102,11 @@ def parse(pdf: bytes | Path) -> Factsheet:
             as_of = dt.datetime.strptime(m.group(1), "%d %B %Y").date()
             break
     if as_of is None:
-        raise ValueError("Kein 'Data as at:'-Datum im PDF gefunden.")
+        raise ValueError("No 'Data as at:' date found in the PDF.")
 
     page = next((t for t in pages if "Country/Market Breakdown" in t), None)
     if page is None:
-        raise ValueError("Seite 'Country/Market Breakdown' nicht gefunden.")
+        raise ValueError("Page 'Country/Market Breakdown' not found.")
 
     rows: list[Row] = []
     totals: Row | None = None
@@ -122,7 +122,7 @@ def parse(pdf: bytes | Path) -> Factsheet:
             rows.append(row)
 
     if totals is None:
-        raise ValueError("Totals-Zeile nicht gefunden - PDF-Layout hat sich geändert?")
+        raise ValueError("Totals row not found - has the PDF layout changed?")
 
     fs = Factsheet(as_of=as_of, rows=rows, totals=totals)
     _validate(fs)
@@ -136,41 +136,41 @@ def _check(fs: Factsheet, name: str, passed: bool, detail: str) -> None:
 def _validate(fs: Factsheet) -> None:
     r, t = fs.rows, fs.totals
 
-    _check(fs, "Anzahl Länder plausibel", len(r) >= 30, f"{len(r)} Länder geparst")
+    _check(fs, "Number of countries plausible", len(r) >= 30, f"{len(r)} countries parsed")
 
     for label, attr, tot in (
-        ("Konstituenten GDP", "cons_gdp", t.cons_gdp),
-        ("Konstituenten MCap", "cons_mc", t.cons_mc),
+        ("constituents GDP", "cons_gdp", t.cons_gdp),
+        ("constituents MCap", "cons_mc", t.cons_mc),
     ):
         s = sum(getattr(x, attr) for x in r)
-        _check(fs, f"Summe {label} == Totals", s == tot, f"{s} vs. {tot}")
+        _check(fs, f"Sum of {label} == totals", s == tot, f"{s} vs. {tot}")
 
     for label, attr, tot in (
-        ("Net MCap GDP", "mcap_gdp", t.mcap_gdp),
-        ("Net MCap MCap", "mcap_mc", t.mcap_mc),
+        ("net MCap GDP", "mcap_gdp", t.mcap_gdp),
+        ("net MCap MCap", "mcap_mc", t.mcap_mc),
     ):
         s = sum(getattr(x, attr) for x in r)
         rel = abs(s - tot) / tot if tot else 1.0
-        _check(fs, f"Summe {label} == Totals", rel <= MCAP_TOL_REL,
-               f"{s:,} vs. {tot:,} (Delta {s - tot:+,})")
+        _check(fs, f"Sum of {label} == totals", rel <= MCAP_TOL_REL,
+               f"{s:,} vs. {tot:,} (delta {s - tot:+,})")
 
     for label, attr, tot in (
-        ("Gewichte GDP", "wgt_gdp", t.wgt_gdp),
-        ("Gewichte MCap", "wgt_mc", t.wgt_mc),
+        ("weights GDP", "wgt_gdp", t.wgt_gdp),
+        ("weights MCap", "wgt_mc", t.wgt_mc),
     ):
         s = sum(getattr(x, attr) for x in r)
-        _check(fs, f"Summe {label} == 100 %", abs(s - tot) <= WGT_TOL_PP,
-               f"{s:.2f} vs. {tot:.2f} (Delta {s - tot:+.2f} pp)")
+        _check(fs, f"Sum of {label} == 100 %", abs(s - tot) <= WGT_TOL_PP,
+               f"{s:.2f} vs. {tot:.2f} (delta {s - tot:+.2f} pp)")
 
-    # Gewicht muss dem MCap-Anteil entsprechen (unabhaengige Gegenprobe)
+    # The weight has to match the mcap share (independent cross-check)
     worst = max(
         (abs(x.wgt_gdp - 100 * x.mcap_gdp / t.mcap_gdp) for x in r), default=0.0
     )
-    _check(fs, "Wgt % konsistent mit Net MCap (GDP)", worst <= 0.02,
-           f"max. Abweichung {worst:.3f} pp")
+    _check(fs, "Wgt % consistent with net MCap (GDP)", worst <= 0.02,
+           f"max. deviation {worst:.3f} pp")
 
     dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
-    _check(fs, "Keine doppelten Länder", not dupes, ", ".join(sorted(dupes)) or "-")
+    _check(fs, "No duplicate countries", not dupes, ", ".join(sorted(dupes)) or "-")
 
 
 def write_csv(fs: Factsheet, path: Path) -> None:
@@ -195,8 +195,8 @@ def meta_path(csv_path: Path) -> Path:
 
 
 def write_meta(fs: Factsheet, path: Path) -> None:
-    """Totals und Prüfergebnisse sichern - alles, was die CSV nicht traegt. Damit ist
-    ein Stichtag allein aus CSV + JSON vollstaendig, ohne das PDF."""
+    """Keeps totals and check results - everything the CSV does not carry. That makes
+    an as-of date complete from CSV + JSON alone, without the PDF."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "as_of": fs.as_of.isoformat(),
@@ -212,7 +212,7 @@ def write_meta(fs: Factsheet, path: Path) -> None:
 
 
 def load_run(csv_path: Path) -> Factsheet:
-    """Baut ein Factsheet aus CSV + JSON-Metadaten wieder auf."""
+    """Rebuilds a factsheet from CSV + JSON metadata."""
     with csv_path.open(encoding="utf-8") as fh:
         recs = list(csv.DictReader(fh))
     rows = [Row(country=r["country"],
@@ -232,16 +232,16 @@ def load_run(csv_path: Path) -> Factsheet:
 
 
 def print_report(fs: Factsheet) -> None:
-    print(f"Stichtag: {fs.as_of:%d.%m.%Y} | Länder: {len(fs.rows)}")
-    print("Prüfungen:")
+    print(f"As-of date: {fs.as_of:%Y-%m-%d} | countries: {len(fs.rows)}")
+    print("Checks:")
     for name, passed, detail in fs.checks:
-        print(f"  [{'OK ' if passed else 'FEHL'}] {name}: {detail}")
+        print(f"  [{'OK  ' if passed else 'FAIL'}] {name}: {detail}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("pdf", type=Path, help="Pfad zum Factsheet-PDF")
-    ap.add_argument("--out", type=Path, default=None, help="Ziel-CSV")
+    ap.add_argument("pdf", type=Path, help="path to the factsheet PDF")
+    ap.add_argument("--out", type=Path, default=None, help="target CSV")
     args = ap.parse_args()
 
     fs = parse(args.pdf)

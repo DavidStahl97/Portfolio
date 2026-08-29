@@ -11,8 +11,8 @@
 
 <div class="card split">
 	<label for="split">
-		<strong>{fmt(mix.split)}</strong> Marktkapitalisierung /
-		<strong>{fmt(1 - mix.split)}</strong> BIP
+		<strong>{fmt(mix.split)}</strong> market capitalisation /
+		<strong>{fmt(1 - mix.split)}</strong> GDP
 	</label>
 	<input
 		id="split"
@@ -24,9 +24,9 @@
 		oninput={(e) => set(Number(e.currentTarget.value))}
 	/>
 	{#if Math.abs(mix.split - DEFAULT_SPLIT) > 0.001}
-		<button onclick={() => set(DEFAULT_SPLIT)}>zurück auf {fmt(DEFAULT_SPLIT)}</button>
+		<button onclick={() => set(DEFAULT_SPLIT)}>back to {fmt(DEFAULT_SPLIT)}</button>
 	{:else}
-		<span class="muted">die Standardmischung</span>
+		<span class="muted">the default mix</span>
 	{/if}
 </div>
 

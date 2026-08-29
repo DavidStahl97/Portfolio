@@ -1,181 +1,177 @@
-# Portfolio: 50 % Marktkapitalisierung / 50 % BIP
+# Portfolio: 50 % market capitalisation / 50 % GDP
 
-Länder-Zielgewichte für ein Weltportfolio, das je zur Hälfte nach
-Marktkapitalisierung und nach Bruttoinlandsprodukt (BIP, kaufkraftbereinigt)
-gewichtet ist.
+Country target weights for a world portfolio weighted half by market capitalisation
+and half by gross domestic product (GDP, purchasing power parity).
 
-**Die Arbeitsteilung ist die Hauptsache an diesem Projekt:** Python holt die
-Rohdaten aus dem Factsheet und prüft sie – mehr nicht. Gewichtet wird
-ausschließlich in der App, im Browser, mit einem Regler. Damit gibt es keine
-zweite Stelle, an der eine Mischung „festgelegt" wäre, und keine gerechneten
-Zahlen im Repository, die zu den Rohdaten nicht mehr passen könnten.
+**The division of labour is the main point of this project:** Python fetches the raw
+data out of the factsheet and checks them – nothing more. The weighting happens
+exclusively in the app, in the browser, with a slider. That way there is no second
+place where a mix would be "fixed", and no computed figures in the repository that
+could stop matching the raw data.
 
-## Datenquelle
+## Data source
 
-Ein einziges Dokument liefert beide Hälften: das monatliche Factsheet des
-**FTSE All-World GDP Weighted Index** (IssueName `GDPWLDS`). Die Seite
-„Country/Market Breakdown" stellt pro Land nebeneinander
+A single document delivers both halves: the monthly factsheet of the
+**FTSE All-World GDP Weighted Index** (issue name `GDPWLDS`). Its
+"Country/Market Breakdown" page presents, side by side per country
 
-* `FTSE All-World GDP Weighted` → BIP-Gewicht (IMF-PPP-Prognosen, jährliches
-  Review im März), und
-* `FTSE All-World` → Marktkapitalisierungs-Gewicht (Free Float).
+* `FTSE All-World GDP Weighted` → the GDP weight (IMF PPP forecasts, annual review
+  in March), and
+* `FTSE All-World` → the market capitalisation weight (free float).
 
-Beides ist also identisch abgegrenzt (gleiches Universum, gleicher Stichtag) –
-genau das, was ein 50/50-Mix braucht. Das PDF ist frei abrufbar, der
-Download-Endpunkt liefert immer die neueste Ausgabe.
+Both are therefore delimited identically (same universe, same as-of date) – exactly
+what a 50/50 mix needs. The PDF is freely available, and the download endpoint always
+serves the latest issue.
 
-## Was wo lebt
+## What lives where
 
-Python **liest und prüft**; es rechnet nichts aus und schreibt weder Markup noch
-Stylesheet noch Skript. Was es erzeugt, sind die Rohdaten des Factsheets und das
-Protokoll ihrer Prüfung. Die App unter `web/` macht daraus die Seite – und sie
-ist die einzige Stelle, an der gewichtet wird.
+Python **reads and checks**; it computes nothing and writes neither markup nor
+stylesheet nor script. What it produces are the raw data of the factsheet and the
+record of their checks. The app under `web/` turns them into the site – and it is the
+only place where any weighting happens.
 
-| Datei | Aufgabe |
+| File | Purpose |
 |---|---|
-| `scripts/fetch_factsheet.py` | lädt das aktuelle Factsheet-PDF |
-| `scripts/parse_factsheet.py` | parst die Ländertabelle, prüft sie, schreibt CSV + `run_*.json` |
-| `scripts/export_data.py` | formt die versionierten Daten nach `web/static/data/` um (ohne zu rechnen) |
-| `scripts/update.py` | Gesamtlauf: laden → parsen → prüfen → exportieren |
-| `web/` | die Single-Page-App (SvelteKit, `adapter-static`) |
-| `web/src/lib/weights.ts` | **die einzige Stelle, an der das Portfolio gewichtet wird** |
-| `web/src/lib/types.ts` | der Datenvertrag zu `export_data.py` – beide Seiten zusammen ändern |
+| `scripts/fetch_factsheet.py` | downloads the current factsheet PDF |
+| `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
+| `scripts/export_data.py` | reshapes the versioned data into `web/static/data/` (without computing) |
+| `scripts/update.py` | full run: download → parse → check → export |
+| `web/` | the single-page app (SvelteKit, `adapter-static`) |
+| `web/src/lib/weights.ts` | **the only place where the portfolio is weighted** |
+| `web/src/lib/types.ts` | the data contract with `export_data.py` – change both sides together |
 
-## Bedienung
+## Usage
 
 ```bash
 pip install -r requirements.txt
 
-python scripts/update.py                 # Download → Prüfen → Export
-python scripts/update.py --pdf data/factsheets/GDPWLDS_20260731.pdf   # ohne Netz
+python scripts/update.py                 # download → check → export
+python scripts/update.py --pdf data/factsheets/GDPWLDS_20260731.pdf   # without network
 
 npm ci --prefix web
 npm run dev --prefix web                 # http://localhost:5173
 ```
 
-`export_data.py` muss vor der App gelaufen sein – sie wird aus dem gebaut, was
-es schreibt. `npm run build --prefix web` legt die fertige Seite in `web/build`,
-`npm run preview --prefix web` serviert sie.
+`export_data.py` has to have run before the app – the app is built from what it
+writes. `npm run build --prefix web` puts the finished site into `web/build`,
+`npm run preview --prefix web` serves it.
 
-Einzelschritte, falls gewünscht:
+Individual steps, if wanted:
 
 ```bash
-python scripts/fetch_factsheet.py                       # nur PDF laden
-python scripts/parse_factsheet.py <pdf>                 # nur CSV + run.json
-python scripts/export_data.py --out web/static          # nur exportieren
+python scripts/fetch_factsheet.py                       # only download the PDF
+python scripts/parse_factsheet.py <pdf>                 # only CSV + run.json
+python scripts/export_data.py --out web/static          # only export
 ```
 
-Vor dem ersten Lauf ist `data/` leer – die Seite sagt das dann auch, statt einen
-Fehler zu zeigen. Den ersten Stichtag erzeugt der erste Lauf von „Daten holen".
+Before the first run `data/` is empty – the site then says so instead of showing an
+error. The first as-of date is produced by the first run of "Fetch data".
 
-## Die Seite
+## The site
 
-* **Startseite** – der neueste Stichtag: Kennzahlen, Prüfungen, die 15 größten
-  Positionen als Balken, die vollständige Ländertabelle.
-* **Stichtagsleiste** – jeder frühere Stichtag ist eine eigene Adresse
-  (`/stichtage/20260731/`); die Δ-Spalte vergleicht dort mit dem jeweiligen
-  Vorgänger, nicht mit dem neuesten Stand.
-* **Verlauf** – Zielgewicht der acht größten Länder über alle Stichtage.
-* **Daten** – alle Stichtage mit ihren CSVs zum Herunterladen.
-* **Mischungsregler** – Standard 50/50, frei verstellbar; die Seite rechnet
-  sofort neu. Die Einstellung gilt für alle Seiten, überlebt den Wechsel des
-  Stichtags und wird im Browser gemerkt. Sie berührt die Daten nicht: im
-  Repository stehen nur die ungewichteten Rohzahlen.
+* **Start page** – the newest as-of date: key figures, checks, the 15 largest
+  positions as bars, the full country table.
+* **As-of date bar** – every earlier as-of date is its own address
+  (`/dates/20260731/`); the Δ column compares there with the respective predecessor,
+  not with the newest state.
+* **History** – target weight of the eight largest countries across all as-of dates.
+* **Data** – all as-of dates with their CSVs to download.
+* **Mix slider** – 50/50 by default, freely adjustable; the site recomputes
+  immediately. The setting applies to every page, survives a change of the as-of date
+  and is remembered in the browser. It does not touch the data: only the unweighted
+  raw figures are in the repository.
 
-## Ausgaben
+## Output
 
-Die **CSVs und `run_*.json` sind versioniert**: aus ihnen baut `export_data.py`
-die Daten der App, und `git log data/` ist die Rebalancing-Historie. Das
-Factsheet-PDF ist ein Wegwerfdatum und liegt als Actions-Artefakt.
+The **CSVs and `run_*.json` are versioned**: `export_data.py` builds the data of the
+app from them, and `git log data/` is the rebalancing history. The factsheet PDF is a
+throwaway file and is kept as an Actions artifact.
 
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `data/ftse_country_weights_<date>.csv` | Rohdaten je Land: Konstituenten, Net MCap, beide Gewichte |
-| `data/run_<date>.json` | Totals und Prüfergebnisse des Laufs |
-| `data/factsheets/<issue>_<date>.pdf` | Original-Factsheet (nicht versioniert) |
+| `data/ftse_country_weights_<date>.csv` | raw data per country: constituents, net mcap, both weights |
+| `data/run_<date>.json` | totals and check results of the run |
+| `data/factsheets/<issue>_<date>.pdf` | original factsheet (not versioned) |
 
-## Prüfungen
+## Checks
 
-Die Prüfung der Rohdaten ist die zweite Aufgabe von Python, und die einzige
-Stelle, an der ein Lauf scheitern kann. `parse_factsheet.py` bricht mit
-Exit-Code 1 ab (und `update.py` exportiert dann nichts), wenn eine dieser
-Prüfungen fehlschlägt:
+Checking the raw data is Python's second job, and the only place where a run can
+fail. `parse_factsheet.py` exits with code 1 (and `update.py` then exports nothing) if
+one of these checks fails:
 
-1. Summe der Konstituenten aller Länder == `Totals`-Zeile (beide Indizes, exakt)
-2. Summe der Net MCap aller Länder == `Totals` (beide Indizes, rel. Toleranz 1e-6)
-3. Summe der Gewichtsspalten == 100,00 % (Toleranz 0,5 pp; die Wgt-Spalten sind
-   auf zwei Nachkommastellen gerundet, bei ~48 Ländern also bis zu 0,24 pp
-   Rundungsrauschen)
-4. Gegenprobe: gemeldetes `Wgt %` == eigener Anteil `Net MCap / Total`
-   (max. 0,02 pp Abweichung) – fängt vertauschte oder verlorene Spalten ab
-5. Mindestens 30 Länder, keine Dubletten
+1. Sum of the constituents of all countries == the `Totals` row (both indices, exact)
+2. Sum of the net mcap of all countries == `Totals` (both indices, relative tolerance 1e-6)
+3. Sum of the weight columns == 100.00 % (tolerance 0.5 pp; the Wgt columns are
+   rounded to two decimals, which with ~48 countries means up to 0.24 pp of rounding
+   noise)
+4. Cross-check: the reported `Wgt %` == our own share `net mcap / total`
+   (max. 0.02 pp deviation) – catches swapped or lost columns
+5. At least 30 countries, no duplicates
 
-Damit fällt sowohl ein Layout-Wechsel des PDFs als auch eine unvollständig
-geparste Tabelle sofort auf, statt still ein falsches Portfolio zu erzeugen. Die
-Ergebnisse wandern in `run_*.json` und stehen auf der Seite unter „Prüfungen" –
-auch für jeden früheren Stichtag.
+That way both a layout change of the PDF and an incompletely parsed table show up
+immediately, instead of silently producing a wrong portfolio. The results go into
+`run_*.json` and appear on the site under "Checks" – for every earlier as-of date too.
 
-## Die drei Workflows
+## The three workflows
 
-| Datei | Auslöser | Tut |
+| File | Trigger | Does |
 |---|---|---|
-| `.github/workflows/pages.yml` | Push auf `main` | baut die Seite aus `data/` und veröffentlicht sie |
-| `.github/workflows/daten.yml` | von Hand | holt das Factsheet, prüft es, öffnet einen Pull Request |
-| `.github/workflows/pr.yml` | Pull Request | baut die Seite und hängt sie als Artefakt an |
+| `.github/workflows/pages.yml` | push to `main` | builds the site from `data/` and publishes it |
+| `.github/workflows/data.yml` | manual | fetches the factsheet, checks it, opens a pull request |
+| `.github/workflows/pr.yml` | pull request | builds the site and attaches it as an artifact |
 
-### Der Monatslauf
+### The monthly run
 
-**Actions → „Daten holen" → Run workflow.** Der Lauf
+**Actions → "Fetch data" → Run workflow.** The run
 
-1. lädt das aktuelle Factsheet und **prüft** es – reißt eine Prüfung, endet er
-   hier, ohne Branch und ohne Pull Request,
-2. legt `daten/<YYYYMMDD>` an, committet CSV und `run_*.json`, pusht,
-3. baut die Seite und lädt sie als Artefakt **`seite-<YYYYMMDD>`** hoch,
-4. öffnet den Pull Request und verlinkt das Artefakt darin.
+1. downloads the current factsheet and **checks** it – if a check breaks, it ends
+   here, with no branch and no pull request,
+2. creates `data/<YYYYMMDD>`, commits the CSV and `run_*.json`, pushes,
+3. builds the site and uploads it as the artifact **`site-<YYYYMMDD>`**,
+4. opens the pull request and links the artifact in it.
 
-Du lädst das Artefakt herunter, entpackst es und siehst dir die Seite an:
+You download the artifact, unpack it and look at the site:
 
 ```bash
-npx serve preview          # oder: python3 -m http.server -d preview
+npx serve preview          # or: python3 -m http.server -d preview
 ```
 
-Passt es, mergst du. Der Merge löst `pages.yml` aus und die Seite ist live – eine
-gesonderte Freigabe gibt es nicht mehr, **der Merge ist die Freigabe**.
+If it fits, you merge. The merge triggers `pages.yml` and the site is live – there is
+no separate approval any more, **the merge is the approval**.
 
-Liegt der Stichtag schon unverändert im Repository, endet der Lauf ohne Änderung.
-Ist zu diesem Stichtag bereits ein Pull Request offen, bekommt er neue Commits
-statt eines zweiten Pull Requests.
+If the as-of date is already in the repository unchanged, the run ends without a
+change. If a pull request for that as-of date is already open, it gets new commits
+instead of a second pull request.
 
-### Code-Änderungen
+### Code changes
 
-Jeder Push auf `main` veröffentlicht die Seite neu – auch ohne neue Daten, denn
-sie wird bei jedem Deploy vollständig aus `data/` gebaut. Für Pull Requests mit
-Code-Änderungen baut `pr.yml` dieselbe Seite als Artefakt.
+Every push to `main` publishes the site anew – even without new data, because it is
+built completely from `data/` on every deploy. For pull requests with code changes,
+`pr.yml` builds the same site as an artifact.
 
-### Einmalige Einrichtung (in den Repo-Settings, nicht im Code möglich)
+### One-off setup (in the repo settings, not possible in code)
 
-1. **Settings → Pages → Source: „GitHub Actions"**
-2. **Settings → Actions → General → Workflow permissions**: „Allow GitHub Actions
-   to create and approve pull requests" einschalten – sonst kann `daten.yml`
-   keinen Pull Request öffnen.
-3. Am Environment `github-pages` **keine** Required reviewers eintragen; sonst
-   wartet jeder Deploy zusätzlich auf eine Freigabe.
+1. **Settings → Pages → Source: "GitHub Actions"**
+2. **Settings → Actions → General → Workflow permissions**: turn on "Allow GitHub
+   Actions to create and approve pull requests" – otherwise `data.yml` cannot open a
+   pull request.
+3. Set **no** required reviewers on the `github-pages` environment; otherwise every
+   deploy additionally waits for an approval.
 
-## Turnus
+## Cadence
 
-Das Factsheet erscheint monatlich zum Monatsende; die Länder-BIP-Gewichte
-selbst werden nur einmal jährlich im März-Review neu gesetzt, die
-Marktkapitalisierungs-Seite bewegt sich laufend. Ein monatlicher Lauf reicht
-also vollkommen; für die Umsetzung genügt in der Praxis ein quartalsweises
-oder jährliches Rebalancing.
+The factsheet appears monthly at month end; the country GDP weights themselves are
+only reset once a year in the March review, while the market capitalisation side moves
+continuously. A monthly run is therefore entirely sufficient; in practice quarterly or
+annual rebalancing is enough for implementation.
 
-## Hinweise
+## Notes
 
-* Die FTSE-Gewichte sind auf 5 % je *Einzelwert* gekappt (Annual Review) – das
-  betrifft die Länderebene hier nicht, erklärt aber Abweichungen zu selbst
-  gerechneten BIP-Anteilen.
-* Das Universum umfasst nur Länder mit investierbaren FTSE-All-World-Titeln;
-  BIP-Anteile von Ländern ohne Index-Vertretung fallen heraus und werden
-  implizit auf die übrigen verteilt.
-* Ist das Repository öffentlich, ist es auch die Pages-Seite.
-* Keine Anlageberatung; die PDFs unterliegen den LSEG/FTSE-Nutzungsbedingungen.
+* The FTSE weights are capped at 5 % per *single security* (annual review) – that does
+  not affect the country level here, but it explains deviations from self-computed GDP
+  shares.
+* The universe only covers countries with investable FTSE All-World securities; GDP
+  shares of countries without index representation drop out and are implicitly
+  distributed over the rest.
+* If the repository is public, so is the Pages site.
+* Not investment advice; the PDFs are subject to the LSEG/FTSE terms of use.

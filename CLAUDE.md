@@ -1,82 +1,84 @@
 # CLAUDE.md
 
-Hinweise für Claude Code (claude.ai/code) zur Arbeit in diesem Repository.
+Notes for Claude Code (claude.ai/code) when working in this repository.
 
 @README.md
 
-Das README erklärt Zweck, Datenquelle, Bedienung und die Workflows – es wird oben
-importiert und hier nicht wiederholt. Was folgt, ist nur das, worüber man beim
-Arbeiten im Code stolpert.
+The README explains purpose, data source, usage and the workflows – it is imported
+above and not repeated here. What follows is only what you stumble over while working
+in the code.
 
-## Sprache
+## Language
 
-Prosa ist deutsch: Kommentare, Docstrings, CLI-Hilfe, Fehlermeldungen, alles
-Sichtbare in der App, README und Commit-Nachrichten. Bezeichner sind englisch:
-Funktions- und Variablennamen, CSV-Spalten (`as_of`, `net_mcap_usdm_gdp`),
-JSON-Felder (`asOf`, `mcap`, `consGdp`). Ein deutscher Kommentar über einer
-englisch benannten Funktion ist richtig so; ein deutscher Variablenname nicht.
+**Everything in this repository is English, without exception.** Prose as well as
+identifiers: comments, docstrings, CLI help, error messages, everything visible in the
+app, the README, commit messages, pull request texts, workflow and job names,
+route names and file names. There is no German anywhere – if you find some, translate
+it.
 
-In Commit-Nachrichten keine Umlaute (`ue`, `ae`, `oe`) – das Terminal, aus dem
-sie geschrieben werden, verträgt sie nicht zuverlässig. In Dateien dagegen
-schon: dort gehören richtige Umlaute hin.
+The country names are the one thing that is not translated: they come from the PDF
+(`Turkiye`, `Czech Rep.`) and are the key by which as-of dates are compared.
 
-## Die Trennlinie, um die es geht
+Keep identifiers as they are unless the task is a rename: `as_of`,
+`net_mcap_usdm_gdp` in the CSV, `asOf`, `mcap`, `consGdp` in the JSON. They are part
+of the data contract between `export_data.py` and `web/src/lib/types.ts`.
 
-**Python liest und prüft. Es rechnet nichts aus.** Was es erzeugt, sind die
-Rohdaten des Factsheets und das Protokoll ihrer Prüfung. Die Gewichtung des
-Portfolios steht an genau einer Stelle: `web/src/lib/weights.ts`.
+Commit messages stay plain ASCII – the terminal they are written from does not handle
+anything else reliably.
 
-Diese Grenze ist der Grund, warum es dieses Projekt in dieser Form gibt, und sie
-wurde einmal bewusst hergestellt (`build_portfolio.py` und die
-`target_weights_*.csv` sind deshalb gelöscht worden). Wenn eine Aufgabe dazu
-verführt, in Python eine Mischung, ein Zielgewicht oder eine Kappung zu
-berechnen, gehört sie in die App. Umgekehrt: Wenn in der App etwas aus dem PDF
-gelesen oder geprüft werden soll, gehört es nach Python.
+## The line this is all about
 
-`export_data.py` steht auf der Python-Seite und **formt nur um** – jede Zahl, die
-es schreibt, steht so schon in `data/`. Wenn dort eine Rechnung entsteht, ist das
-ein Fehler.
+**Python reads and checks. It computes nothing.** What it produces are the raw data of
+the factsheet and the record of their checks. The weighting of the portfolio lives in
+exactly one place: `web/src/lib/weights.ts`.
 
-## Was versioniert ist
+That boundary is the reason this project exists in this form, and it was drawn
+deliberately once (`build_portfolio.py` and the `target_weights_*.csv` were deleted for
+it). If a task tempts you to compute a mix, a target weight or a cap in Python, it
+belongs in the app. And the other way round: if something is to be read out of the PDF
+or checked, it belongs in Python.
+
+`export_data.py` sits on the Python side and **only reshapes** – every figure it writes
+already stands like that in `data/`. If a computation appears there, that is a bug.
+
+## What is versioned
 
 | | |
 |---|---|
-| `data/ftse_country_weights_<date>.csv` | eine Zeile je Land, versioniert |
-| `data/run_<date>.json` | `totals` aus dem PDF + die neun Prüfergebnisse, versioniert |
-| `data/factsheets/*.pdf` | ignoriert, jederzeit neu ladbar |
-| `web/static/data/`, `web/static/csv/` | ignoriert, von `export_data.py` erzeugt |
-| `web/static/favicon.svg` | **Quelle**, versioniert – nicht mit dem Rest von `static/` ignorieren |
-| `web/build/`, `preview/` | ignoriert |
+| `data/ftse_country_weights_<date>.csv` | one row per country, versioned |
+| `data/run_<date>.json` | `totals` from the PDF + the nine check results, versioned |
+| `data/factsheets/*.pdf` | ignored, downloadable again at any time |
+| `web/static/data/`, `web/static/csv/` | ignored, produced by `export_data.py` |
+| `web/static/favicon.svg` | **source**, versioned – do not ignore it with the rest of `static/` |
+| `web/build/`, `preview/` | ignored |
 
-`data/` ist die Wahrheit. Die Seite wird bei jedem Deploy komplett daraus neu
-gebaut, auch jeder frühere Stichtag – deshalb wirkt eine Layoutänderung rückwirkend
-auf die ganze Historie, und deshalb darf kein generiertes HTML im Repository
-liegen.
+`data/` is the truth. The site is rebuilt completely from it on every deploy, including
+every earlier as-of date – which is why a layout change acts retroactively on the whole
+history, and why no generated HTML may live in the repository.
 
-## Prüfen
+## Checking
 
-Es gibt keine Testsuite. Geprüft wird so:
+There is no test suite. Checking works like this:
 
-1. **Python:** `python scripts/update.py --pdf data/factsheets/<datei>.pdf`
-   läuft durch und meldet neun grüne Prüfungen, oder es bricht ab. Ein PDF liegt
-   nach dem ersten Lauf unter `data/factsheets/`; ohne Netz ist `--pdf` der Weg.
-2. **App:** `npm run check --prefix web` ist `svelte-check` gegen
-   `web/src/lib/types.ts`. Das ist die einzige Stelle, an der ein in
-   `export_data.py` umbenanntes Feld auffällt, bevor die Seite leer bleibt.
-   CI führt es aus.
-3. **Im Browser, und zwar wirklich.** Punkt 1 und 2 waren grün, als der Regler
-   beim ersten Besuch auf 0 statt 50 stand und die Seite reines BIP-Gewicht
-   zeigte. Was nicht angesehen wurde, gilt als ungeprüft.
+1. **Python:** `python scripts/update.py --pdf data/factsheets/<file>.pdf`
+   runs through and reports nine green checks, or it aborts. A PDF is under
+   `data/factsheets/` after the first run; without a network, `--pdf` is the way.
+2. **App:** `npm run check --prefix web` is `svelte-check` against
+   `web/src/lib/types.ts`. That is the only place where a field renamed in
+   `export_data.py` shows up before the site stays empty. CI runs it.
+3. **In the browser, and really.** Points 1 and 2 were green when the slider sat at 0
+   instead of 50 on the first visit and the site showed pure GDP weighting. What has
+   not been looked at counts as unchecked.
 
-Für Punkt 3 reicht `npm run dev --prefix web`. Wer den Produktionsstand ansehen
-will, braucht einen Server, der sich wie GitHub Pages verhält – also unter
-`/<repository>/` liefert und unbekannte Pfade mit der `404.html` beantwortet,
-sonst sind die Stichtagsadressen nicht direkt aufrufbar:
+For point 3, `npm run dev --prefix web` is enough. Anyone who wants to look at the
+production state needs a server that behaves like GitHub Pages – that is, serves under
+`/<repository>/` and answers unknown paths with the `404.html`, otherwise the as-of
+date addresses cannot be opened directly:
 
 ```python
-# unbekannte Pfade -> 404.html, so wie Pages es tut
+# unknown paths -> 404.html, the way Pages does it
 import http.server, os, socketserver
-ROOT = "/tmp/serve"        # darin: Portfolio/ = Inhalt von web/build
+ROOT = "/tmp/serve"        # containing: Portfolio/ = the content of web/build
 class H(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=ROOT, **k)
     def send_error(self, code, message=None, explain=None):
@@ -90,107 +92,100 @@ socketserver.TCPServer.allow_reuse_address = True
 socketserver.TCPServer(("", 8771), H).serve_forever()
 ```
 
-Der Build ohne Pfadpräfix (`BASE_PATH="" BUILD_DIR="../preview" npm run build`)
-lässt sich dagegen einfach an der Wurzel servieren – das ist die Fassung, die im
-Artefakt liegt.
+The build without a path prefix (`BASE_PATH="" BUILD_DIR="../preview" npm run build`)
+can simply be served at the root – that is the version that goes into the artifact.
 
-Ein Stichtag reicht nicht, um alles zu sehen: Verlaufsdiagramm und Δ-Spalte
-brauchen zwei. Zum Prüfen kann man Vormonate synthetisch erzeugen (CSV kopieren,
-`as_of` ändern, Gewichte leicht streuen, `run_*.json` mitkopieren) – **danach
-wieder löschen**, sie gehören nicht ins Repository.
+One as-of date is not enough to see everything: the history chart and the Δ column need
+two. For checking you can produce synthetic previous months (copy the CSV, change
+`as_of`, scatter the weights a little, copy the `run_*.json` along) – **delete them
+afterwards**, they do not belong in the repository.
 
-## Der Parser
+## The parser
 
-`ROW_RE` in `parse_factsheet.py` liest Zeilen der Form
-`Australia 105 1,060,680 1.08 105 1,687,922 1.62`. Ändert FTSE das Layout, ist
-das die Stelle. Die Ländernamen kommen aus dem PDF und sind englisch
-(`Turkiye`, `Czech Rep.`) – nicht eindeutschen, sie sind der Schlüssel, über den
-Stichtage verglichen werden.
+`ROW_RE` in `parse_factsheet.py` reads lines of the form
+`Australia 105 1,060,680 1.08 105 1,687,922 1.62`. If FTSE changes the layout, that is
+the place. The country names come from the PDF and are English (`Turkiye`,
+`Czech Rep.`) – do not translate them, they are the key by which as-of dates are
+compared.
 
-Die neun Prüfungen sind kein Zierat, sie sind der halbe Zweck des Projekts. Zwei
-Toleranzen sind gerechnet und nicht geraten:
+The nine checks are not decoration, they are half the point of the project. Two
+tolerances are computed, not guessed:
 
-* `WGT_TOL_PP = 0.5` – die Gewichtsspalten sind auf zwei Nachkommastellen
-  gerundet, bei ~48 Ländern also bis zu 0,24 pp Rauschen.
-* `MCAP_TOL_REL = 1e-6` – die Net-MCap-Summe weicht durch dieselbe Rundung um
-  einzelne Millionen ab.
+* `WGT_TOL_PP = 0.5` – the weight columns are rounded to two decimals, so with ~48
+  countries there is up to 0.24 pp of noise.
+* `MCAP_TOL_REL = 1e-6` – the net mcap sum deviates by single millions through the same
+  rounding.
 
-Die vierte Prüfung (`Wgt %` gegen `Net MCap / Total`) ist keine Wiederholung der
-Summenprüfung: Sie fängt vertauschte oder verschobene Spalten ab, die eine reine
-Summe überleben würden.
+The fourth check (`Wgt %` against `net mcap / total`) is not a repetition of the sum
+check: it catches swapped or shifted columns that a plain sum would survive.
 
-## Die App
+## The app
 
-SvelteKit 5 mit Runen, `adapter-static`, `ssr = false`. Vorbild und Ursprung des
-Aufbaus ist `DavidStahl97/Komoot-Collection`.
+SvelteKit 5 with runes, `adapter-static`, `ssr = false`. The model and origin of the
+setup is `DavidStahl97/Komoot-Collection`.
 
-* **`base`** kommt aus `GITHUB_REPOSITORY`, `BASE_PATH` gewinnt. Jeder Pfad in
-  Markup und `fetch` braucht ihn – ein vergessenes `base` ist der Fehler, der
-  lokal funktioniert und auf Pages 404 liefert.
-* **`BUILD_DIR`** in `svelte.config.js` erlaubt den zweiten Build daneben
-  (`preview`). `--outDir` tut das *nicht* – `adapter-static` schreibt nicht
-  dorthin, wohin Vite baut.
-* Die Startseite und `/daten/`, `/verlauf/` sind vorgerendert; ein Stichtag ist
-  ein Parameter und wird über die `404.html` erreicht. Pages antwortet dabei mit
-  Status 404 und die App rendert trotzdem – das ist die Konstruktion, kein Fehler.
-* **Fehlende Daten sind ein Zustand, kein Fehler.** `+layout.ts` behandelt 404
-  auf `data/index.json` als „noch keine Stichtage" und zeigt `Leer.svelte`. Ein
-  geworfener Fehler wird in Produktionsbauten zu einem nackten „500 Internal
-  Error" – das war schon einmal da.
-* **Die Mischung** liegt in `split.svelte.ts` als gemeinsamer Zustand, Standard
-  0,5, im `localStorage` gemerkt. Vorsicht: `Number(null)` ist `0`, nicht `NaN` –
-  ohne Abfrage auf `null` steht der Regler beim ersten Besuch auf 0.
-* Die Δ-Spalte rechnet den Vorstichtag mit **derselben** Mischung wie den
-  aktuellen; sonst zeigt sie die Verstellung des Reglers als Marktbewegung.
-* `let x = $state(irgendwas_reaktives)` erzeugt die Warnung
-  `state_referenced_locally`. Entweder `untrack(...)` im Initialisierer oder den
-  Wert ableiten.
+* **`base`** comes from `GITHUB_REPOSITORY`, `BASE_PATH` wins. Every path in markup and
+  `fetch` needs it – a forgotten `base` is the mistake that works locally and gives a
+  404 on Pages.
+* **`BUILD_DIR`** in `svelte.config.js` allows the second build next to it (`preview`).
+  `--outDir` does *not* – `adapter-static` does not write where Vite builds.
+* The start page and `/data/`, `/history/` are prerendered; an as-of date is a parameter
+  and is reached through the `404.html`. Pages answers with status 404 and the app
+  renders anyway – that is the construction, not a bug.
+* **Missing data is a state, not an error.** `+layout.ts` treats a 404 on
+  `data/index.json` as "no as-of dates yet" and shows `Empty.svelte`. A thrown error
+  becomes a bare "500 Internal Error" in production builds – that has happened before.
+* **The mix** lives in `split.svelte.ts` as shared state, default 0.5, remembered in
+  `localStorage`. Careful: `Number(null)` is `0`, not `NaN` – without a check for
+  `null`, the slider sits at 0 on the first visit.
+* The Δ column computes the previous as-of date with the **same** mix as the current
+  one; otherwise it would show the movement of the slider as a market movement.
+* `let x = $state(something_reactive)` produces the warning
+  `state_referenced_locally`. Either `untrack(...)` in the initialiser, or derive the
+  value.
 
-## Diagramme
+## Charts
 
-Die acht Serienfarben in `app.css` sind gegen Farbfehlsichtigkeit und Kontrast
-geprüft und in dieser Reihenfolge zu vergeben – die Farbe gehört dem Land, nicht
-seinem Rang. Weiter gilt:
+The eight series colours in `app.css` are checked against colour vision deficiency and
+contrast and are to be assigned in that order – the colour belongs to the country, not
+to its rank. Beyond that:
 
-* Eine Achse, nie zwei. Alle drei Serien im Balkendiagramm teilen sich eine Skala,
-  das ist der Vergleich, um den es geht.
-* Text trägt nie die Serienfarbe; die Farbe steckt im Balken oder im Schlüssel
-  daneben.
-* Δ-Werte sind **neutral** eingefärbt. Ein steigendes Ländergewicht ist weder gut
-  noch schlecht, nur Rebalancing-Bedarf – Grün/Rot wäre eine Behauptung.
-* Beschriftungen am Linienende werden auseinandergeschoben (`labels` in
-  `History.svelte`), verschobene bekommen eine Führungslinie. Nicht abschneiden.
+* One axis, never two. All three series in the bar chart share one scale, and that is
+  the comparison this is about.
+* Text never carries the series colour; the colour is in the bar or in the key next to
+  it.
+* Δ values are coloured **neutrally**. A rising country weight is neither good nor bad,
+  only a need to rebalance – green/red would be an assertion.
+* End labels are pushed apart (`labels` in `History.svelte`), and shifted ones get a
+  leader line. Do not truncate them.
 
 ## Workflows
 
-Drei Stück, mit klaren Zuständigkeiten:
+Three of them, with clear responsibilities:
 
-| Datei | Auslöser | Tut |
+| File | Trigger | Does |
 |---|---|---|
-| `pages.yml` | Push auf `main` | baut und veröffentlicht die Seite |
-| `daten.yml` | von Hand | Factsheet holen, prüfen, Branch + Commit + Pull Request, Seite als Artefakt |
-| `pr.yml` | Pull Request | baut die Seite und hängt sie als Artefakt an |
+| `pages.yml` | push to `main` | builds and publishes the site |
+| `data.yml` | manual | fetch the factsheet, check it, branch + commit + pull request, site as an artifact |
+| `pr.yml` | pull request | builds the site and attaches it as an artifact |
 
-Fallen, die dabei schon zugeschnappt sind:
+Traps that have already sprung:
 
-* Ein mit dem `GITHUB_TOKEN` geöffneter Pull Request **löst keine weiteren
-  Workflows aus** – `pr.yml` läuft für die Datenläufe also nicht. Deshalb baut
-  `daten.yml` die Seite selbst und verlinkt das Artefakt im Text des Pull
-  Requests.
-* `--force-with-lease` scheitert nach einem flachen Checkout mit „stale info",
-  wenn der Branch nicht bekannt ist. Vorher `git fetch origin <branch> || true`.
-* GitHub Pages kennt **eine** Site pro Repository. Vorschau-URLs je Pull Request
-  gäbe es nur über einen `gh-pages`-Branch mit Unterordnern; bewusst nicht
-  gemacht – die Vorschau ist das Artefakt.
-* Nötige Repo-Einstellungen: Pages-Quelle „GitHub Actions"; unter
-  *Actions → General* muss „Allow GitHub Actions to create and approve pull
-  requests" an sein, sonst scheitert `gh pr create`. Am Environment
-  `github-pages` dürfen **keine** Required reviewers stehen – der Merge ist die
-  Freigabe.
+* A pull request opened with the `GITHUB_TOKEN` **triggers no further workflows** – so
+  `pr.yml` does not run for the data runs. That is why `data.yml` builds the site
+  itself and links the artifact in the text of the pull request.
+* `--force-with-lease` fails after a shallow checkout with "stale info" when the branch
+  is unknown. Run `git fetch origin <branch> || true` first.
+* GitHub Pages knows **one** site per repository. Per-pull-request preview URLs would
+  only be possible through a `gh-pages` branch with subfolders; deliberately not done –
+  the preview is the artifact.
+* Required repo settings: Pages source "GitHub Actions"; under *Actions → General*,
+  "Allow GitHub Actions to create and approve pull requests" has to be on, otherwise
+  `gh pr create` fails. The `github-pages` environment must have **no** required
+  reviewers – the merge is the approval.
 
-## Umgebung
+## Environment
 
-Die Kommandos gehören ins Repository-Wurzelverzeichnis; `npm` mit
-`--prefix web`. Nach einem `cd web` in einem Befehl bleibt die Shell unter
-Umständen dort – im nächsten Befehl absolute Pfade verwenden oder das
-Verzeichnis prüfen. Das hat schon eine README ins falsche Verzeichnis geschrieben.
+The commands belong in the repository root; `npm` with `--prefix web`. After a `cd web`
+inside a command, the shell may stay there – use absolute paths in the next command or
+check the directory. That has already written a README into the wrong directory.

@@ -9,8 +9,8 @@
 		top = 8
 	}: { reports: Report[]; split: number; top?: number } = $props();
 
-	// Acht feste Serienfarben, in dieser Reihenfolge vergeben und nie durchgereicht:
-	// die Farbe gehoert dem Land, nicht seinem Rang.
+	// Eight fixed series colours, assigned in this order and never handed on:
+	// the colour belongs to the country, not to its rank.
 	const COLORS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8'];
 
 	const W = 860;
@@ -18,8 +18,8 @@
 	const PAD = { t: 16, r: 108, b: 28, l: 40 };
 
 	const perDate = $derived(reports.map((r) => targets(r.countries, split)));
-	// Welche Laender gezeigt werden, entscheidet der neueste Stichtag - danach behaelt
-	// jedes Land seine Farbe, egal wie es sich davor bewegt hat.
+	// Which countries are shown is decided by the newest as-of date - after that every
+	// country keeps its colour, no matter how it moved before.
 	const names = $derived(
 		[...(perDate.at(-1) ?? new Map())]
 			.sort((a, b) => b[1] - a[1])
@@ -43,9 +43,9 @@
 		}))
 	);
 
-	/** Endbeschriftungen auseinanderschieben, damit sich eng beieinander liegende
-	 *  Laender nicht ueberschreiben. Der Punkt bleibt auf seinem Wert, nur der Text
-	 *  wandert - deshalb bekommt jede verschobene Zeile eine Fuehrungslinie. */
+	/** Push the end labels apart so that countries lying close together do not
+	 *  overwrite each other. The dot stays on its value, only the text moves - which
+	 *  is why every shifted line gets a leader line. */
 	const labels = $derived.by(() => {
 		const GAP = 13;
 		const items = lines
@@ -54,13 +54,13 @@
 			.sort((a, b) => a.at - b.at);
 		for (let k = 1; k < items.length; k++)
 			items[k].ly = Math.max(items[k].ly, items[k - 1].ly + GAP);
-		// zurueck in den Rahmen schieben, falls unten herausgelaufen
+		// push back into the frame if it ran out at the bottom
 		const over = (items.at(-1)?.ly ?? 0) - (H - PAD.b);
 		if (over > 0) for (const o of items) o.ly -= over;
 		return items;
 	});
 
-	/** Runde Werte auf der Achse - 0 / 10 / 20 statt 11,4 / 22,8. */
+	/** Round values on the axis - 0 / 10 / 20 instead of 11.4 / 22.8. */
 	const ticks = $derived.by(() => {
 		const raw = max / 4;
 		const mag = 10 ** Math.floor(Math.log10(raw));
@@ -81,7 +81,7 @@
 	</p>
 
 	<div class="plot">
-		<svg viewBox="0 0 {W} {H}" role="img" aria-label="Zielgewichte über die Stichtage">
+		<svg viewBox="0 0 {W} {H}" role="img" aria-label="Target weights across the as-of dates">
 			{#each ticks as t (t)}
 				<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />
 				<text class="tick" x={PAD.l - 8} y={y(t)} text-anchor="end" dominant-baseline="middle"
@@ -125,7 +125,7 @@
 			{/each}
 
 			{#each reports as r, i (r.asOf)}
-				<!-- breite, unsichtbare Trefferflaeche je Stichtag -->
+				<!-- wide, invisible hit area per as-of date -->
 				<rect
 					class="hit"
 					x={x(i) - (W - PAD.l - PAD.r) / (2 * Math.max(1, reports.length - 1))}

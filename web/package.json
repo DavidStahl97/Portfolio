@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Die Weboberflaeche der Portfolio-Zielgewichte - gebaut aus dem, was export_data.py schreibt.",
+  "description": "The web interface of the portfolio target weights - built from what export_data.py writes.",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

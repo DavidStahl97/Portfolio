@@ -9,17 +9,17 @@
 	}: { rows: RankedCountry[]; top?: number; prev?: Map<string, number> } = $props();
 
 	const shown = $derived(rows.slice(0, top));
-	// Alle drei Serien teilen sich eine Skala - zwei Achsen waeren die Vergleichbarkeit,
-	// um die es hier geht, genau los.
+	// All three series share one scale - two axes would lose exactly the comparability
+	// this chart is about.
 	const scale = $derived(
 		Math.max(...shown.flatMap((r) => [r.mcap, r.gdp, r.target]), 0.01)
 	);
 	let hovered = $state<string | null>(null);
 
 	const series = [
-		{ key: 'mcap', label: 'Marktkapitalisierung', color: 'var(--s1)' },
-		{ key: 'gdp', label: 'BIP', color: 'var(--s2)' },
-		{ key: 'target', label: 'Zielgewicht', color: 'var(--s3)' }
+		{ key: 'mcap', label: 'Market capitalisation', color: 'var(--s1)' },
+		{ key: 'gdp', label: 'GDP', color: 'var(--s2)' },
+		{ key: 'target', label: 'Target weight', color: 'var(--s3)' }
 	] as const;
 </script>
 
@@ -61,8 +61,8 @@
 				{/each}
 				{#if hovered === r.country}
 					<div class="tip">
-						{r.country}: Ziel {pct(r.target)} %, kumuliert {pct(r.cum)} %{d !== null
-							? `, ${d >= 0 ? '+' : ''}${pct(d)} pp zum Vorstichtag`
+						{r.country}: target {pct(r.target)} %, cumulative {pct(r.cum)} %{d !== null
+							? `, ${d >= 0 ? '+' : ''}${pct(d)} pp vs. the previous date`
 							: ''}
 					</div>
 				{/if}

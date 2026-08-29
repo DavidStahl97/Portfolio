@@ -11,37 +11,37 @@
 
 	let { report, previous }: { report: Report; previous: Report | null } = $props();
 
-	// Die Mischung gilt fuer alle Seiten und bleibt beim Wechsel des Stichtags stehen.
+	// The mix applies to every page and stays put when the as-of date changes.
 	const split = $derived(mix.split);
 	const rows = $derived(ranked(report.countries, split));
-	// Der Vorstichtag wird mit derselben Mischung gerechnet - sonst zeigte die
-	// Delta-Spalte die Verstellung des Reglers statt der Bewegung im Markt.
+	// The previous as-of date is computed with the same mix - otherwise the delta
+	// column would show the movement of the slider instead of the movement of the market.
 	const prev = $derived(previous ? targets(previous.countries, split) : new Map<string, number>());
 </script>
 
 <svelte:head>
-	<title>Zielgewichte {day(report.asOf)}</title>
+	<title>Target weights {day(report.asOf)}</title>
 </svelte:head>
 
 {#if !report.ok}
 	<p class="warn">
-		<span class="status fail"><span class="dot"></span>Prüfung fehlgeschlagen</span> — die Zahlen
-		dieses Stichtags sind nicht belastbar. Was gerissen ist, steht unten.
+		<span class="status fail"><span class="dot"></span>Check failed</span> — the figures of
+		this as-of date are not dependable. What broke is listed below.
 	</p>
 {/if}
 
 <Tiles {report} {rows} />
 
-<h2>Prüfungen</h2>
+<h2>Checks</h2>
 <Checks checks={report.checks} />
 
-<h2>Mischung</h2>
+<h2>Mix</h2>
 <SplitSlider />
 
-<h2>Größte 15 Positionen</h2>
+<h2>Largest 15 positions</h2>
 <WeightChart {rows} {prev} />
 
-<h2>Alle Länder</h2>
+<h2>All countries</h2>
 <CountryTable {rows} {prev} />
 
 <style>

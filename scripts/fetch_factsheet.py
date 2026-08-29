@@ -1,8 +1,8 @@
-"""Lädt das aktuelle FTSE-Russell-Factsheet (PDF) herunter.
+"""Downloads the current FTSE Russell factsheet (PDF).
 
-Der Download-Endpunkt liefert immer die neueste veröffentlichte Ausgabe
-(Monatsende). Die Datei wird unter data/factsheets/<ISSUE>_<YYYYMMDD>.pdf
-abgelegt, wobei das Datum aus dem PDF-Inhalt stammt (siehe parse_factsheet).
+The download endpoint always serves the latest published issue (month end). The
+file is stored as data/factsheets/<ISSUE>_<YYYYMMDD>.pdf, with the date taken
+from the PDF content (see parse_factsheet).
 """
 
 from __future__ import annotations
@@ -30,33 +30,33 @@ def fetch(issue: str = DEFAULT_ISSUE, timeout: int = 60) -> bytes:
     data = resp.content
     if not data.startswith(b"%PDF"):
         raise SystemExit(
-            f"Antwort ist kein PDF (Content-Type: {resp.headers.get('content-type')}, "
-            f"{len(data)} Bytes) - Endpunkt oder IssueName prüfen."
+            f"Response is not a PDF (content type: {resp.headers.get('content-type')}, "
+            f"{len(data)} bytes) - check the endpoint or the issue name."
         )
     return data
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--issue", default=DEFAULT_ISSUE, help="FTSE IssueName, z.B. GDPWLDS")
-    ap.add_argument("--out", type=Path, default=None, help="Zielpfad des PDFs")
+    ap.add_argument("--issue", default=DEFAULT_ISSUE, help="FTSE issue name, e.g. GDPWLDS")
+    ap.add_argument("--out", type=Path, default=None, help="target path of the PDF")
     args = ap.parse_args()
 
     data = fetch(args.issue)
 
     out = args.out
     if out is None:
-        from parse_factsheet import extract_as_of_date  # lokal, vermeidet Zirkelimport
+        from parse_factsheet import extract_as_of_date  # local, avoids a circular import
 
         as_of = extract_as_of_date(data)
         out = REPO / "data" / "factsheets" / f"{args.issue}_{as_of:%Y%m%d}.pdf"
     out.parent.mkdir(parents=True, exist_ok=True)
 
     if out.exists() and hashlib.md5(out.read_bytes()).hexdigest() == hashlib.md5(data).hexdigest():
-        print(f"unverändert: {out.relative_to(REPO)}")
+        print(f"unchanged: {out.relative_to(REPO)}")
     else:
         out.write_bytes(data)
-        print(f"gespeichert:  {out.relative_to(REPO)} ({len(data)} Bytes)")
+        print(f"saved:     {out.relative_to(REPO)} ({len(data)} bytes)")
     print(out)
     return 0
 

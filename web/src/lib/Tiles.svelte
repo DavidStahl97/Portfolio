@@ -11,28 +11,28 @@
 
 <div class="tiles">
 	<div class="tile">
-		<div class="label">Stichtag</div>
+		<div class="label">As of</div>
 		<div class="value">{day(report.asOf)}</div>
-		<div class="note">{count(report.totals.consGdp)} Konstituenten</div>
+		<div class="note">{count(report.totals.consGdp)} constituents</div>
 	</div>
 	<div class="tile">
-		<div class="label">Länder</div>
+		<div class="label">Countries</div>
 		<div class="value">{report.countries.length}</div>
 		<div class="note">Top 10 = {pct(top10)} %</div>
 	</div>
 	{#if usa}
 		<div class="tile">
-			<div class="label">USA-Zielgewicht</div>
+			<div class="label">USA target weight</div>
 			<div class="value">{pct(usa.target)} %</div>
-			<div class="note">MCap {pct(usa.mcap)} % / BIP {pct(usa.gdp)} %</div>
+			<div class="note">MCap {pct(usa.mcap)} % / GDP {pct(usa.gdp)} %</div>
 		</div>
 	{/if}
 	<div class="tile">
-		<div class="label">Datenprüfung</div>
+		<div class="label">Data check</div>
 		<div class="value small status" class:ok={report.ok} class:fail={!report.ok}>
-			<span class="dot"></span>{report.ok ? 'bestanden' : 'fehlgeschlagen'}
+			<span class="dot"></span>{report.ok ? 'passed' : 'failed'}
 		</div>
-		<div class="note">{report.checks.length} Prüfungen</div>
+		<div class="note">{report.checks.length} checks</div>
 	</div>
 </div>
 

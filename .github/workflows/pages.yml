@@ -1,6 +1,6 @@
-name: Seite veroeffentlichen
+name: Publish site
 
-# Jede Aenderung an main geht live: Code wie Daten. Der Merge ist die Freigabe.
+# Every change on main goes live: code as well as data. The merge is the approval.
 on:
   push:
     branches: [main]
@@ -8,15 +8,15 @@ on:
 
 permissions: {}
 
-# Ein Deploy nach dem anderen; laufende nicht abbrechen, sonst bleibt die Seite
-# auf halbem Weg stehen.
+# One deploy after the other; do not cancel running ones, otherwise the site is
+# left standing halfway.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Bauen
+    name: Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,24 +34,24 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Abhaengigkeiten installieren
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Daten exportieren
-        # Kein Download, kein Parsen: die gepruefen Rohdaten liegen im Repository.
-        # Ist data/ noch leer, geht die Seite trotzdem hoch - sie sagt dann selbst,
-        # dass der erste Datenlauf fehlt.
-        run: python scripts/export_data.py --out web/static || echo "noch keine Daten - Seite ohne Stichtage"
+      - name: Export data
+        # No download, no parsing: the checked raw data are in the repository.
+        # If data/ is still empty the site goes up anyway - it then says itself
+        # that the first data run is missing.
+        run: python scripts/export_data.py --out web/static || echo "no data yet - site without as-of dates"
 
-      - name: App installieren
+      - name: Install the app
         run: npm ci
         working-directory: web
 
-      - name: App pruefen
+      - name: Check the app
         run: npm run check
         working-directory: web
 
-      - name: App bauen
+      - name: Build the app
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
@@ -62,7 +62,7 @@ jobs:
           path: web/build
 
   deploy:
-    name: Veroeffentlichen
+    name: Publish
     needs: build
     runs-on: ubuntu-latest
     permissions:
