@@ -1,0 +1,76 @@
+name: Seite veroeffentlichen
+
+# Jede Aenderung an main geht live: Code wie Daten. Der Merge ist die Freigabe.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# Ein Deploy nach dem anderen; laufende nicht abbrechen, sonst bleibt die Seite
+# auf halbem Weg stehen.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Bauen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Abhaengigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Daten exportieren
+        # Kein Download, kein Parsen: die gepruefen Rohdaten liegen im Repository.
+        # Ist data/ noch leer, geht die Seite trotzdem hoch - sie sagt dann selbst,
+        # dass der erste Datenlauf fehlt.
+        run: python scripts/export_data.py --out web/static || echo "noch keine Daten - Seite ohne Stichtage"
+
+      - name: App installieren
+        run: npm ci
+        working-directory: web
+
+      - name: App pruefen
+        run: npm run check
+        working-directory: web
+
+      - name: App bauen
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: BUILD_DATE=$(date -u +%Y-%m-%d) npm run build
+        working-directory: web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/build
+
+  deploy:
+    name: Veroeffentlichen
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

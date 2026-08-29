@@ -1,0 +1,23 @@
+{
+  "name": "portfolio-report",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Die Weboberflaeche der Portfolio-Zielgewichte - gebaut aus dem, was export_data.py schreibt.",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.49.2",
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@types/node": "^26.2.0",
+    "svelte": "^5.42.2",
+    "svelte-check": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.13"
+  }
+}
