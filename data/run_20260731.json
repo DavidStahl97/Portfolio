@@ -1,0 +1,58 @@
+{
+  "as_of": "2026-07-31",
+  "totals": {
+    "cons_gdp": 4247,
+    "mcap_gdp": 98611919,
+    "wgt_gdp": 100.0,
+    "cons_mc": 4265,
+    "mcap_mc": 104427490,
+    "wgt_mc": 100.0
+  },
+  "checks": [
+    {
+      "name": "Anzahl Länder plausibel",
+      "passed": true,
+      "detail": "48 Länder geparst"
+    },
+    {
+      "name": "Summe Konstituenten GDP == Totals",
+      "passed": true,
+      "detail": "4247 vs. 4247"
+    },
+    {
+      "name": "Summe Konstituenten MCap == Totals",
+      "passed": true,
+      "detail": "4265 vs. 4265"
+    },
+    {
+      "name": "Summe Net MCap GDP == Totals",
+      "passed": true,
+      "detail": "98,611,920 vs. 98,611,919 (Delta +1)"
+    },
+    {
+      "name": "Summe Net MCap MCap == Totals",
+      "passed": true,
+      "detail": "104,427,490 vs. 104,427,490 (Delta +0)"
+    },
+    {
+      "name": "Summe Gewichte GDP == 100 %",
+      "passed": true,
+      "detail": "99.98 vs. 100.00 (Delta -0.02 pp)"
+    },
+    {
+      "name": "Summe Gewichte MCap == 100 %",
+      "passed": true,
+      "detail": "100.02 vs. 100.00 (Delta +0.02 pp)"
+    },
+    {
+      "name": "Wgt % konsistent mit Net MCap (GDP)",
+      "passed": true,
+      "detail": "max. Abweichung 0.005 pp"
+    },
+    {
+      "name": "Keine doppelten Länder",
+      "passed": true,
+      "detail": "-"
+    }
+  ]
+}
