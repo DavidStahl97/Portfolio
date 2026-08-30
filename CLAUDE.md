@@ -139,7 +139,10 @@ failure: the next run writes the new table, and that is the fix.
 
 The one exception is FTSE Japan. Its factsheet has no country table at all, so
 `indices.py` carries `covers=("Japan",)`. `check_sources.py` prints that factsheet's
-page headings on every run, so the exception stays checkable rather than believed.
+page headings on every run, so the exception stays checkable rather than believed - as
+of July 2026 they are `FTSE Japan Index`, `Top 10 Constituents`, `bmkImage1 bmkImage2
+bmkImage3`, and there is nothing to read a country from. If a breakdown page ever
+appears there, drop the `covers` and let the CSV take over.
 
 `export_data.py` builds `web/static/data/regions.json` out of the CSVs of the newest
 as-of date - all or nothing, since Japan alone would draw one tiny region and the whole

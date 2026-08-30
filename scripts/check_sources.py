@@ -133,6 +133,10 @@ def main() -> int:
 
     print("\nThe newest committed region CSV against the factsheet")
     for issue, countries in parsed.items():
+        if indices.get(issue).covers:
+            print(f"    [INFO] {issue}: no CSV - its factsheet has no country table, "
+                  f"the country is named in indices.py")
+            continue
         newest = sorted(DATA.glob(f"region_{issue}_*.csv"))
         if not newest:
             print(f"    [INFO] {issue}: no CSV in data/ yet - the next run writes one")
