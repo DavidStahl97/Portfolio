@@ -8,9 +8,13 @@
 	import { day } from '$lib/format';
 	import { mix } from '$lib/split.svelte';
 	import { ranked, targets } from '$lib/weights';
-	import type { Report } from '$lib/types';
+	import type { Region, Report } from '$lib/types';
 
-	let { report, previous }: { report: Report; previous: Report | null } = $props();
+	let {
+		report,
+		previous,
+		regions = []
+	}: { report: Report; previous: Report | null; regions?: Region[] } = $props();
 
 	// The mix applies to every page and stays put when the as-of date changes.
 	const split = $derived(mix.split);
@@ -40,7 +44,7 @@
 <SplitSlider />
 
 <h2>Market capitalisation, GDP and the mix</h2>
-<PieCharts countries={report.countries} {split} />
+<PieCharts countries={report.countries} {split} {regions} />
 
 <h2>Largest 15 positions</h2>
 <WeightChart {rows} {prev} />

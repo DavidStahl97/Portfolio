@@ -43,6 +43,28 @@ export interface Report {
 	countries: Country[];
 }
 
+/** One of the five regional indices, with the countries its factsheet lists.
+ *
+ * The grouping is FTSE's, read out of the five factsheets and checked against them by
+ * `scripts/check_sources.py` on every run. Countries of the All-World that are in none
+ * of the five are not listed anywhere here - Israel is developed but sits in FTSE's
+ * Middle East & Africa region - and the app gives them their own slice. */
+export interface Region {
+	/** FTSE issue name of the factsheet, e.g. AWNAMERS */
+	issue: string;
+	/** index name as it stands in the factsheet */
+	index: string;
+	/** the Vanguard UCITS ETF that tracks it */
+	etf: string;
+	countries: string[];
+}
+
+export interface Regions {
+	/** as-of date of the factsheets the grouping was read from */
+	readFrom: string;
+	regions: Region[];
+}
+
 export interface AsOfDate {
 	asOf: string;
 	ok: boolean;

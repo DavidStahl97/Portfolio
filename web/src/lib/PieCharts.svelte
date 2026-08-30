@@ -1,58 +1,56 @@
 <script lang="ts">
 	import { pct } from '$lib/format';
-	import { targets } from '$lib/weights';
-	import type { Country } from '$lib/types';
+	import { countryGroups, regionGroups, shares, UNCOVERED, type Group } from '$lib/weights';
+	import type { Country, Region } from '$lib/types';
 
 	let {
 		countries,
 		split,
+		regions = [],
 		top = 8
-	}: { countries: Country[]; split: number; top?: number } = $props();
+	}: { countries: Country[]; split: number; regions?: Region[]; top?: number } = $props();
 
 	// The same eight series colours as everywhere else, assigned in this order: the
-	// colour belongs to the country and is the same in all three charts, which is the
-	// whole point of showing them next to each other.
+	// colour belongs to the country or the region and is the same in all three charts,
+	// which is the whole point of showing them next to each other.
 	const COLORS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8'];
-	const REST = 'Other countries';
 
 	const R = 52;
 	const HOLE = 30;
 	const BOX = 124; // -62 .. 62
 
-	const target = $derived(targets(countries, split));
+	// Countries or the five regional indices. Without regions.json there is nothing to
+	// switch to, and the control is not shown at all.
+	let by = $state<'country' | 'region'>('country');
+	const canGroup = $derived(regions.length > 0);
+	const mode = $derived(canGroup ? by : 'country');
 
-	/** Which countries get their own slice is decided by the mixed weighting - so all
-	 *  three charts are cut the same way and are comparable slice by slice. */
-	const names = $derived(
-		[...countries]
-			.sort((a, b) => (target.get(b.country) ?? 0) - (target.get(a.country) ?? 0))
-			.slice(0, top)
-			.map((c) => c.country)
+	/** How the pie is cut. All three charts use the same groups, so they are comparable
+	 *  slice by slice; only the way a country is valued differs between them. */
+	const groups: Group[] = $derived(
+		mode === 'region' ? regionGroups(countries, regions) : countryGroups(countries, split, top)
 	);
+
+	// The remainder and the countries in none of the five are not a series of their
+	// own - they get the neutral colour, so a real slice is never mistaken for them.
 	const color = $derived(
-		new Map(names.map((n, i) => [n, `var(${COLORS[i % COLORS.length]})`]))
+		new Map(
+			groups
+				.filter((g) => g.name !== 'rest' && g.name !== UNCOVERED)
+				.map((g, i) => [g.name, `var(${COLORS[i % COLORS.length]})`])
+		)
 	);
-
-	/** One chart: the named countries in the order of the legend, the remainder
-	 *  collected into one slice. Normalised to 100 % - the weight columns of the
-	 *  factsheet are rounded, so their sum is only nearly 100. */
-	function slices(value: (c: Country) => number) {
-		const sum = countries.reduce((a, c) => a + value(c), 0) || 1;
-		const named = names.map((n) => {
-			const c = countries.find((x) => x.country === n);
-			return { name: n, share: (100 * (c ? value(c) : 0)) / sum };
-		});
-		const rest = 100 - named.reduce((a, s) => a + s.share, 0);
-		return [...named, { name: REST, share: Math.max(rest, 0) }];
-	}
+	const fill = (name: string) => color.get(name) ?? 'var(--baseline)';
+	const label = $derived(new Map(groups.map((g) => [g.name, g.label])));
+	const title = $derived(new Map(groups.map((g) => [g.name, g.title])));
 
 	const charts = $derived([
-		{ key: 'mcap', label: 'Market capitalisation', slices: slices((c) => c.mcap) },
-		{ key: 'gdp', label: 'GDP', slices: slices((c) => c.gdp) },
+		{ key: 'mcap', label: 'Market capitalisation', value: (c: Country) => c.mcap },
+		{ key: 'gdp', label: 'GDP', value: (c: Country) => c.gdp },
 		{
 			key: 'target',
 			label: 'Mix',
-			slices: slices((c) => split * c.mcap + (1 - split) * c.gdp)
+			value: (c: Country) => split * c.mcap + (1 - split) * c.gdp
 		}
 	]);
 
@@ -77,7 +75,7 @@
 			let at = 0;
 			return {
 				...chart,
-				parts: chart.slices.map((s) => {
+				parts: shares(countries, groups, chart.value).map((s) => {
 					const from = at;
 					at += s.share;
 					// a full circle has no arc that svg could draw - leave a hair open
@@ -88,23 +86,35 @@
 	);
 
 	let hovered = $state<string | null>(null);
-	const legend = $derived([...names, REST]);
-	const fill = (name: string) => color.get(name) ?? 'var(--baseline)';
 </script>
 
 <div class="card">
-	<p class="legend">
-		{#each legend as name (name)}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<span
-				class:dim={hovered !== null && hovered !== name}
-				onmouseenter={() => (hovered = name)}
-				onmouseleave={() => (hovered = null)}
-			>
-				<i class="key" style:background={fill(name)}></i>{name}
-			</span>
-		{/each}
-	</p>
+	<div class="head">
+		<p class="legend">
+			{#each groups as group (group.name)}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<span
+					class:dim={hovered !== null && hovered !== group.name}
+					title={group.title}
+					onmouseenter={() => (hovered = group.name)}
+					onmouseleave={() => (hovered = null)}
+				>
+					<i class="key" style:background={fill(group.name)}></i>{group.label}
+				</span>
+			{/each}
+		</p>
+
+		{#if canGroup}
+			<div class="switch" role="group" aria-label="Group by">
+				<button type="button" aria-pressed={mode === 'country'} onclick={() => (by = 'country')}>
+					Countries
+				</button>
+				<button type="button" aria-pressed={mode === 'region'} onclick={() => (by = 'region')}>
+					5 regions
+				</button>
+			</div>
+		{/if}
+	</div>
 
 	<div class="charts">
 		{#each drawn as chart (chart.key)}
@@ -119,7 +129,7 @@
 							onmouseenter={() => (hovered = part.name)}
 							onmouseleave={() => (hovered = null)}
 						>
-							<title>{part.name}: {pct(part.share)} %</title>
+							<title>{title.get(part.name)}: {pct(part.share)} %</title>
 						</path>
 					{/each}
 					{#if hovered}
@@ -138,14 +148,33 @@
 			</figure>
 		{/each}
 	</div>
+
+	{#if mode === 'region'}
+		<p class="note">
+			{#if hovered && hovered !== UNCOVERED}
+				{title.get(hovered)}: {groups.find((g) => g.name === hovered)?.countries.join(', ')}
+			{:else}
+				The five indices of the Vanguard regional ETFs. Together they cover the All-World
+				except for the neutral slice - the mix decides how much goes into each.
+			{/if}
+		</p>
+	{/if}
 </div>
 
 <style>
+	.head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 16px;
+		flex-wrap: wrap;
+		margin-bottom: 8px;
+	}
 	.legend {
 		display: flex;
 		gap: 8px 18px;
 		flex-wrap: wrap;
-		margin: 0 0 8px;
+		margin: 0;
 		color: var(--ink-2);
 		font-size: 13px;
 	}
@@ -159,6 +188,29 @@
 		height: 11px;
 		border-radius: 3px;
 		flex: none;
+	}
+	.switch {
+		display: inline-flex;
+		border: 1px solid var(--ring);
+		border-radius: 8px;
+		overflow: hidden;
+		flex: none;
+	}
+	.switch button {
+		font: inherit;
+		font-size: 13px;
+		padding: 4px 10px;
+		border: 0;
+		background: transparent;
+		color: var(--ink-2);
+		cursor: pointer;
+	}
+	.switch button + button {
+		border-left: 1px solid var(--ring);
+	}
+	.switch button[aria-pressed='true'] {
+		background: var(--ring);
+		color: var(--ink);
 	}
 	.charts {
 		display: grid;
@@ -196,5 +248,10 @@
 	}
 	figcaption .muted {
 		font-variant-numeric: tabular-nums;
+	}
+	.note {
+		margin: 8px 0 0;
+		color: var(--ink-2);
+		font-size: 13px;
 	}
 </style>

@@ -1,4 +1,4 @@
-import type { Country } from './types';
+import type { Country, Region } from './types';
 
 /** Target weight per country: split * market capitalisation + (1 - split) * GDP,
  *  normalised to 100 %.
@@ -24,3 +24,81 @@ export function ranked(countries: Country[], split: number) {
 }
 
 export type RankedCountry = ReturnType<typeof ranked>[number];
+
+/** A set of countries shown as one slice: one country, one regional index, or the
+ *  remainder. `name` identifies it, `label` names it, `title` says the long form. */
+export interface Group {
+	name: string;
+	label: string;
+	title: string;
+	countries: string[];
+}
+
+/** Everything the five regional indices do not cover. Israel is the case: developed,
+ *  but in FTSE's Middle East & Africa region, so in none of the five ETFs. */
+export const UNCOVERED = 'uncovered';
+
+/** The largest `n` countries by target weight, each its own group, and the rest.
+ *
+ *  Which countries get their own slice is decided by the mixed weighting, so charts
+ *  drawn from these groups are cut identically and comparable slice by slice. */
+export function countryGroups(countries: Country[], split: number, n: number): Group[] {
+	const rows = ranked(countries, split);
+	const named = rows.slice(0, n).map((c) => ({
+		name: c.country,
+		label: c.country,
+		title: c.country,
+		countries: [c.country]
+	}));
+	const rest = rows.slice(n).map((c) => c.country);
+	return rest.length
+		? [...named, { name: 'rest', label: 'Other countries', title: 'Other countries', countries: rest }]
+		: named;
+}
+
+/** The five regional indices as groups, in the order of the file, and one group for
+ *  the countries none of them covers.
+ *
+ *  The order is deliberately not by weight: the colour belongs to the region, and a
+ *  region must not change colour because the slider moved. */
+export function regionGroups(countries: Country[], regions: Region[]): Group[] {
+	const present = new Set(countries.map((c) => c.country));
+	const groups = regions.map((r) => ({
+		name: r.issue,
+		label: r.etf ? `${r.index.replace(/^FTSE /, '')} (${r.etf})` : r.index,
+		title: r.index,
+		countries: r.countries.filter((c) => present.has(c))
+	}));
+
+	const covered = new Set(groups.flatMap((g) => g.countries));
+	const rest = [...present].filter((c) => !covered.has(c)).sort();
+	return rest.length
+		? [
+				...groups,
+				{
+					name: UNCOVERED,
+					label: 'In none of the five',
+					title: `In none of the five indices: ${rest.join(', ')}`,
+					countries: rest
+				}
+			]
+		: groups;
+}
+
+/** The share of every group, in percent, under one way of valuing a country.
+ *
+ *  Normalised to 100 %: the weight columns of the factsheet are rounded to two
+ *  decimals, so their sum over ~48 countries is only nearly 100. A country that is in
+ *  no group is still in the denominator - dropping it would quietly inflate the rest. */
+export function shares(
+	countries: Country[],
+	groups: Group[],
+	value: (c: Country) => number
+): { name: string; share: number }[] {
+	const by = new Map(countries.map((c) => [c.country, value(c)]));
+	const sum = countries.reduce((a, c) => a + value(c), 0) || 1;
+	return groups.map((g) => ({
+		name: g.name,
+		share: (100 * g.countries.reduce((a, c) => a + (by.get(c) ?? 0), 0)) / sum
+	}));
+}

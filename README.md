@@ -66,6 +66,7 @@ only place where any weighting happens.
 | File | Purpose |
 |---|---|
 | `scripts/indices.py` | the FTSE issues that are downloaded: the blend and the five regions |
+| `data/regions.json` | which country is in which of the five regional indices, read off their factsheets |
 | `scripts/fetch_factsheet.py` | downloads factsheet PDFs |
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
 | `scripts/check_sources.py` | fetches every registered issue and checks it can still be read |
@@ -114,6 +115,12 @@ error. The first as-of date is produced by the first run of "Fetch data".
   not with the newest state.
 * **History** – target weight of the eight largest countries across all as-of dates.
 * **Data** – all as-of dates with their CSVs to download.
+* **Donuts: market capitalisation, GDP and the mix** – the three weightings side by
+  side, cut identically so they are comparable slice by slice. A switch changes what a
+  slice is: the largest single countries, or the **five regional indices** – the
+  building blocks of the five Vanguard regional ETFs, weighted by the same slider. What
+  the five do not cover keeps its own neutral slice; today that is Israel, which is
+  developed but sits in FTSE's Middle East & Africa region.
 * **Mix slider** – 50/50 by default, freely adjustable; the site recomputes
   immediately. The setting applies to every page, survives a change of the as-of date
   and is remembered in the browser. It does not touch the data: only the unweighted
@@ -161,6 +168,7 @@ throwaway file and is kept as an Actions artifact.
 |---|---|
 | `data/ftse_country_weights_<date>.csv` | raw data per country: constituents, net mcap, both weights |
 | `data/run_<date>.json` | totals and check results of the run |
+| `data/regions.json` | which country is in which of the five regional indices |
 | `data/factsheets/<issue>_<date>.pdf` | original factsheet (not versioned) |
 
 ## Checks

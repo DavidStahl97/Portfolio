@@ -127,6 +127,32 @@ must not hold the country data of a run hostage, so `update.py` warns and keeps 
 code. `check_sources.py` is the opposite - it exists to find such problems, so there
 everything is a failure.
 
+## The five regions in the app
+
+`data/regions.json` says which country belongs to which of the five regional indices.
+It is the one list in this project that was written by hand - and the only one with a
+check that proves it right on every run: `check_sources.py` compares it against the
+country tables of the five freshly downloaded factsheets and fails on any difference.
+Without that it would go stale silently at the next reclassification, and there is one
+coming: **Greece moves from FTSE Emerging to FTSE Developed Europe on 21 September
+2026.** When the check goes red for that, the fix is to move the country in the file,
+not to loosen the check.
+
+`export_data.py` reshapes it into `web/static/data/regions.json`, `+layout.ts` loads it
+alongside `index.json`, and a missing file is a state, not an error - the charts then
+simply do not offer the region view.
+
+The grouping and the summing live in `weights.ts` with the rest of the weighting:
+`regionGroups` cuts the world into the five indices plus one group for what none of
+them covers, `countryGroups` does the same per country, and `shares` sums either under
+whichever way of valuing a country a chart asks for. `PieCharts.svelte` only draws.
+Two things there are deliberate and easy to undo by accident:
+
+* **The region order is the file order, not the weight order.** The colour belongs to
+  the region; sorting by weight would let a region change colour when the slider moves.
+* **The uncovered group is never a series colour**, it gets `--baseline` like the
+  remainder. A country the five ETFs cannot buy must not look like one they can.
+
 ## The parser
 
 `ROW_RE` in `parse_factsheet.py` reads lines of the form

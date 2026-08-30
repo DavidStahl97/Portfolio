@@ -9,8 +9,9 @@ describes - the other side of the same contract, and it has to be changed along
 whenever a field name changes here.
 
 The sources are the versioned `ftse_country_weights_<date>.csv` files together with
-their `run_<date>.json`. The factsheet PDF is not needed, so the whole history can be
-re-exported at any time.
+their `run_<date>.json`, plus `regions.json` for the grouping into the five regional
+indices. The factsheet PDF is not needed, so the whole history can be re-exported at
+any time.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import parse_factsheet
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
+REGIONS_JSON = DATA / "regions.json"
 
 
 def report_payload(fs) -> dict:
@@ -51,6 +53,29 @@ def report_payload(fs) -> dict:
                 "netGdp": r.mcap_gdp,
             }
             for r in sorted(fs.rows, key=lambda r: r.country)
+        ],
+    }
+
+
+def regions_payload() -> dict:
+    """The grouping into the five regional indices, as the app needs it.
+
+    Reshaped, not decided: which country is in which index was read out of the five
+    factsheets and is checked against them by check_sources.py. The countries of the
+    All-World that are in none of the five stay unlisted - the app shows them as their
+    own slice rather than silently dropping them.
+    """
+    stored = json.loads(REGIONS_JSON.read_text(encoding="utf-8"))
+    return {
+        "readFrom": stored["read_from"],
+        "regions": [
+            {
+                "issue": r["issue"],
+                "index": r["index"],
+                "etf": r["etf"],
+                "countries": sorted(r["countries"]),
+            }
+            for r in stored["regions"]
         ],
     }
 
@@ -80,6 +105,11 @@ def main(argv: list[str] | None = None) -> int:
         (out / f"{stamp}.json").write_text(
             json.dumps(report_payload(fs), ensure_ascii=False) + "\n", encoding="utf-8"
         )
+
+    (out / "regions.json").write_text(
+        json.dumps(regions_payload(), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     index = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),

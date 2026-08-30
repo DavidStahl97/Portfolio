@@ -10,12 +10,16 @@ Three things are checked, in this order:
 
 1. every issue in `indices.py` downloads and names the index we asked for,
 2. every regional factsheet parses, with the same checks as the blend,
-3. the five regions cover the countries of the blend - each country in exactly one
-   region, with the gaps and any overlaps named.
+3. `data/regions.json` still says what the factsheets say, and the five regions cover
+   the countries of the blend - each country in exactly one region, with the gaps and
+   any overlaps named.
 
-Point 3 is the one worth having. The regional split is FTSE's, and this reads it out of
-FTSE's own documents rather than trusting a country list kept by hand. Nothing is
-weighted here either; what comes out is a report.
+Point 3 is the one worth having. `data/regions.json` is what the app groups countries
+by, and it is a list: without this check it would quietly go stale the first time FTSE
+moves a country, which happens with every reclassification - Greece moves from Emerging
+to Developed Europe in September 2026. The list is written by hand once and proved
+right here, against FTSE's own documents, on every run. Nothing is weighted here; what
+comes out is a report.
 
 On a parse failure the lines of the country table are dumped, because a layout change
 is the likely cause and the lines are what you need to see to fix the pattern.
@@ -24,6 +28,7 @@ is the likely cause and the lines are what you need to see to fix the pattern.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -34,6 +39,7 @@ import indices
 import parse_factsheet
 
 REPO = Path(__file__).resolve().parent.parent
+REGIONS_JSON = REPO / "data" / "regions.json"
 DUMP_LINES = 60
 
 
@@ -111,6 +117,29 @@ def main() -> int:
             print(f"    [FAIL] as-of date {as_of:%Y-%m-%d} instead of "
                   f"{blend.as_of:%Y-%m-%d} - the issues are out of step.")
             failed.append(index.issue)
+
+    if len(parsed) == len(indices.REGIONS):
+        print("\ndata/regions.json against the factsheets")
+        stored = json.loads(REGIONS_JSON.read_text(encoding="utf-8"))
+        by_issue = {r["issue"]: r for r in stored["regions"]}
+        for issue, countries in parsed.items():
+            entry = by_issue.get(issue)
+            if entry is None:
+                print(f"    [FAIL] {issue}: missing from data/regions.json")
+                failed.append("regions.json")
+                continue
+            gone = sorted(set(entry["countries"]) - set(countries))
+            new = sorted(set(countries) - set(entry["countries"]))
+            passed = not gone and not new
+            detail = "unchanged" if passed else (
+                f"no longer in the index: {', '.join(gone) or '-'}; "
+                f"newly in it: {', '.join(new) or '-'}")
+            print(f"    [{'OK  ' if passed else 'FAIL'}] {issue}: {detail}")
+            if not passed:
+                failed.append("regions.json")
+        for issue in by_issue.keys() - parsed.keys():
+            print(f"    [FAIL] {issue}: in data/regions.json but not among the indices")
+            failed.append("regions.json")
 
     if blend and len(parsed) == len(indices.REGIONS):
         print("\nCoverage of the blend by the five regions")

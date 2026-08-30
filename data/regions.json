@@ -1,0 +1,77 @@
+{
+  "note": "Which country belongs to which of the five regional indices. Read out of the Country/Market Breakdown of the five factsheets (see scripts/indices.py), not decided here. scripts/check_sources.py compares this file against the freshly downloaded factsheets and fails if it has drifted - so it cannot go stale unnoticed. FTSE Japan has no country table because a single-country index has nothing to break down; its entry comes from the registry. Countries of the All-World that are in none of the five are not listed and are shown as their own slice in the app: Israel is developed but sits in FTSE's Middle East & Africa region.",
+  "read_from": "2026-07-31",
+  "regions": [
+    {
+      "issue": "AWNAMERS",
+      "index": "FTSE North America",
+      "etf": "VNRT",
+      "countries": ["Canada", "USA"]
+    },
+    {
+      "issue": "AWDEURS",
+      "index": "FTSE Developed Europe",
+      "etf": "VEUR",
+      "countries": [
+        "Austria",
+        "Belgium",
+        "Denmark",
+        "Finland",
+        "France",
+        "Germany",
+        "Ireland",
+        "Italy",
+        "Netherlands",
+        "Norway",
+        "Poland",
+        "Portugal",
+        "Spain",
+        "Sweden",
+        "Switzerland",
+        "UK"
+      ]
+    },
+    {
+      "issue": "AWALLE",
+      "index": "FTSE Emerging",
+      "etf": "VFEM",
+      "countries": [
+        "Brazil",
+        "Chile",
+        "China",
+        "Colombia",
+        "Czech Rep.",
+        "Egypt",
+        "Greece",
+        "Hungary",
+        "Iceland",
+        "India",
+        "Indonesia",
+        "Kuwait",
+        "Malaysia",
+        "Mexico",
+        "Philippines",
+        "Qatar",
+        "Romania",
+        "Saudi Arabia",
+        "South Africa",
+        "Taiwan",
+        "Thailand",
+        "Turkiye",
+        "UAE"
+      ]
+    },
+    {
+      "issue": "WIJPN",
+      "index": "FTSE Japan",
+      "etf": "VJPN",
+      "countries": ["Japan"]
+    },
+    {
+      "issue": "AWDPACXJ",
+      "index": "FTSE Developed Asia Pacific ex Japan",
+      "etf": "VAPX",
+      "countries": ["Australia", "Hong Kong", "Korea", "New Zealand", "Singapore"]
+    }
+  ]
+}
