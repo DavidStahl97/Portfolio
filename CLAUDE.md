@@ -160,6 +160,26 @@ Two things there are deliberate and easy to undo by accident:
 * **The uncovered group is never a series colour**, it gets `--baseline` like the
   remainder. A country the five ETFs cannot buy must not look like one they can.
 
+## What the five ETFs deliver
+
+`viaRegions` and `activeShare` in `weights.ts` answer the question the region view
+raises: if the portfolio is *held* as the five regional ETFs, what country weights come
+out? The five hit their region exactly, and then weight the countries inside it by
+market capitalisation - that is what an index fund tracking a regional index holds.
+So the GDP half of the mix survives between the regions and is undone within them.
+
+Two properties are worth keeping, because they are what makes the figure trustworthy:
+
+* **At `split = 1` the active share is exactly 0.** Pure market capitalisation is what
+  the ETFs hold anyway, so there is nothing left to distort. If that number ever comes
+  out non-zero, the weighting is wrong, not the display.
+* **It is linear in the tilt** - 0, 6.18, 12.37, 18.55, 24.74 % at 100/75/50/25/0 %
+  market capitalisation. Same reason: both sides of the difference are linear in
+  `split`.
+
+Countries in none of the five keep their target weight; they are not bought through a
+regional ETF, so there is nothing to distort. Israel is the case.
+
 ## The parser
 
 `ROW_RE` in `parse_factsheet.py` reads lines of the form

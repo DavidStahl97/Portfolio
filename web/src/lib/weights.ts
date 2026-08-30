@@ -102,3 +102,54 @@ export function shares(
 		share: (100 * g.countries.reduce((a, c) => a + (by.get(c) ?? 0), 0)) / sum
 	}));
 }
+
+/** What the five ETFs actually deliver, per country.
+ *
+ *  The five regional indices are weighted by market capitalisation inside themselves -
+ *  that is what an index fund tracking them holds. Buying them at the target weight of
+ *  their region therefore hits the region exactly, but leaves every country within it
+ *  at its market weight. The GDP half of the mix survives between regions and is undone
+ *  inside them.
+ *
+ *  Countries in none of the five keep their target weight: they are not bought through
+ *  a regional ETF at all, so there is nothing to distort. */
+export function viaRegions(
+	countries: Country[],
+	split: number,
+	regions: Region[]
+): Map<string, number> {
+	const target = targets(countries, split);
+	const mcap = new Map(countries.map((c) => [c.country, c.mcap]));
+	const out = new Map<string, number>();
+
+	for (const group of regionGroups(countries, regions)) {
+		const weight = group.countries.reduce((a, c) => a + (target.get(c) ?? 0), 0);
+		if (group.name === UNCOVERED) {
+			for (const c of group.countries) out.set(c, target.get(c) ?? 0);
+			continue;
+		}
+		const inside = group.countries.reduce((a, c) => a + (mcap.get(c) ?? 0), 0);
+		for (const c of group.countries) {
+			out.set(c, inside > 0 ? (weight * (mcap.get(c) ?? 0)) / inside : 0);
+		}
+	}
+	return out;
+}
+
+/** How much of the portfolio sits in a different country than intended, in percent.
+ *
+ *  Half the sum of the absolute deviations - the usual way to read it, because every
+ *  overweight is somebody else's underweight and the plain sum counts both. */
+export function activeShare(
+	countries: Country[],
+	split: number,
+	regions: Region[]
+): number {
+	const target = targets(countries, split);
+	const actual = viaRegions(countries, split, regions);
+	let sum = 0;
+	for (const c of countries) {
+		sum += Math.abs((actual.get(c.country) ?? 0) - (target.get(c.country) ?? 0));
+	}
+	return sum / 2;
+}

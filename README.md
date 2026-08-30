@@ -122,6 +122,14 @@ error. The first as-of date is produced by the first run of "Fetch data".
   building blocks of the five Vanguard regional ETFs, weighted by the same slider. What
   the five do not cover keeps its own neutral slice; today that is Israel, which is
   developed but sits in FTSE's Middle East & Africa region.
+* **What the five ETFs deliver** – the country table carries two more columns when the
+  regional data are there: the weight the five regional ETFs actually produce, and its
+  distance from the target. They hit a region exactly and then weight the countries
+  inside it by market capitalisation, because that is how the regional indices are
+  built – so the GDP half of the mix survives *between* the regions and is undone
+  *within* them. The tile says how much of the portfolio that moves: 12.4 % at 50/50,
+  and 0 % at pure market capitalisation, where there is nothing to undo. Almost all of
+  it sits in Emerging, where Taiwan comes in far above its target and China far below.
 * **Mix slider** – 50/50 by default, freely adjustable; the site recomputes
   immediately. The setting applies to every page, survives a change of the as-of date
   and is remembered in the browser. It does not touch the data: only the unweighted
