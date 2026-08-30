@@ -37,10 +37,13 @@ UCITS ETFs, which is how the portfolio is meant to be held:
 | FTSE Japan | `WIJPN` | VJPN |
 | FTSE Developed Asia Pacific ex Japan | `AWDPACXJ` | VAPX |
 
-Their country tables are read with the same checks as the blend's - a factsheet of a
-single index has one set of columns where the blend has two, so it needs its own row
-pattern but not its own idea of what a correct table looks like. Nothing is versioned
-from them yet.
+Their country tables are read with the same checks as the blend's - most of them have
+one set of columns where the blend has two, so they need their own row pattern but not
+their own idea of what a correct table looks like. Two are special: the Developed Europe
+factsheet prints FTSE World Europe beside itself and marks the countries that are only
+in that second index with dashes, and the Japan factsheet has no country table at all,
+because a single-country index has nothing to break down. Nothing is versioned from any
+of them yet.
 
 The point of having them is that the split of the world into regions is read out of
 FTSE's own documents instead of a country list kept by hand: `check_sources.py`

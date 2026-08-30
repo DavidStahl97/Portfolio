@@ -30,11 +30,20 @@ ROW_RE = re.compile(
     r"(?P<cons_gdp>\d{1,5})\s+(?P<mcap_gdp>[\d,]+)\s+(?P<wgt_gdp>\d+\.\d{2})\s+"
     r"(?P<cons_mc>\d{1,5})\s+(?P<mcap_mc>[\d,]+)\s+(?P<wgt_mc>\d+\.\d{2})\s*$"
 )
-# "Australia 105 1,687,922 1.62" - a factsheet of a single index has one set of
-# columns where the blend has two side by side.
+# "Australia 105 1,687,922 1.62" - most regional factsheets have one set of columns
+# where the blend has two side by side.
 REGION_ROW_RE = re.compile(
     r"^(?P<country>[A-Za-z][A-Za-z .'\-()&/]*?)\s+"
     r"(?P<cons>\d{1,5})\s+(?P<mcap>[\d,]+)\s+(?P<wgt>\d+\.\d{2})\s*$"
+)
+# ... but not all: the Developed Europe factsheet prints FTSE World Europe beside
+# itself and writes a dash where a country belongs to that second index only.
+#   "Austria 9 75,954 0.59 9 75,954 0.58"
+#   "Czech Rep. - - - 4 13,530 0.10"        <- not in FTSE Developed Europe
+_SET = r"(?:(?P<cons>\d{1,5})\s+(?P<mcap>[\d,]+)\s+(?P<wgt>\d+\.\d{2})|-\s+-\s+-)"
+REGION_PAIR_RE = re.compile(
+    r"^(?P<country>[A-Za-z][A-Za-z .'\-()&/]*?)\s+" + _SET +
+    r"\s+(?:\d{1,5}|-)\s+(?:[\d,]+|-)\s+(?:\d+\.\d{2}|-)\s*$"
 )
 DATE_RE = re.compile(r"Data as at:\s*(\d{1,2}\s+\w+\s+\d{4})")
 BREAKDOWN = "Country/Market Breakdown"
@@ -235,12 +244,9 @@ def parse_region(pdf: bytes | Path, issue: str = "", title: str = "") -> RegionF
     rows: list[RegionRow] = []
     totals: RegionRow | None = None
     for line in breakdown_page(pages).splitlines():
-        m = REGION_ROW_RE.match(line.strip())
-        if not m:
+        row = region_row(line.strip())
+        if row is None:
             continue
-        g = m.groupdict()
-        row = RegionRow(country=g["country"].strip(), cons=int(g["cons"]),
-                        mcap=int(g["mcap"].replace(",", "")), wgt=float(g["wgt"]))
         if row.country.lower() == "totals":
             totals = row
         else:
@@ -252,6 +258,21 @@ def parse_region(pdf: bytes | Path, issue: str = "", title: str = "") -> RegionF
     fs = RegionFactsheet(issue=issue, title=title, as_of=as_of, rows=rows, totals=totals)
     _validate_region(fs)
     return fs
+
+
+def region_row(line: str) -> RegionRow | None:
+    """One line of the country table, or None if the line is not one.
+
+    None also for a country that carries dashes in the columns of the index we are
+    reading: it belongs to the index printed next to it, not to this one. That is how
+    the Developed Europe factsheet lists Greece, Turkiye and the rest of FTSE World
+    Europe - and dropping them is the whole point, they are in FTSE Emerging.
+    """
+    m = REGION_PAIR_RE.match(line) or REGION_ROW_RE.match(line)
+    if m is None or m.group("cons") is None:
+        return None
+    return RegionRow(country=m.group("country").strip(), cons=int(m.group("cons")),
+                     mcap=int(m.group("mcap").replace(",", "")), wgt=float(m.group("wgt")))
 
 
 def _validate_region(fs: RegionFactsheet) -> None:

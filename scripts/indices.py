@@ -27,11 +27,18 @@ class Index:
     the index name as it stands on the first page of the PDF - that is what
     `fetch_factsheet` matches to notice a wrong or renamed issue, and `etf` the
     Vanguard UCITS ETF that tracks the index, empty for the blend.
+
+    `covers` names the countries of an index whose factsheet has no country table at
+    all, and stays empty everywhere else. A single-country index has nothing to break
+    down, so FTSE prints no such page - which leaves the country nowhere to be read
+    from. It is the one country list in this project that is kept by hand, and the
+    only one that cannot go out of date on its own.
     """
 
     issue: str
     title: str
     etf: str = ""
+    covers: tuple[str, ...] = ()
 
     @property
     def label(self) -> str:
@@ -48,7 +55,7 @@ REGIONS = (
     Index("AWNAMERS", "FTSE North America", "VNRT"),
     Index("AWDEURS", "FTSE Developed Europe", "VEUR"),
     Index("AWALLE", "FTSE Emerging", "VFEM"),
-    Index("WIJPN", "FTSE Japan", "VJPN"),
+    Index("WIJPN", "FTSE Japan", "VJPN", covers=("Japan",)),
     Index("AWDPACXJ", "FTSE Developed Asia Pacific ex Japan", "VAPX"),
 )
 

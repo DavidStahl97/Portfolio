@@ -79,36 +79,44 @@ def main() -> int:
             failed.append(indices.BLEND.issue)
             _dump(blend_pdf)
 
-    parsed: dict[str, parse_factsheet.RegionFactsheet] = {}
+    parsed: dict[str, list[str]] = {}
     for index in indices.REGIONS:
         print(f"\n{index.issue}: {index.label}")
         pdf: Path | None = None
         try:
-            pdf, _ = fetch_factsheet.fetch_index(index)
-            region = parse_factsheet.parse_region(pdf, index.issue, index.title)
+            pdf, as_of = fetch_factsheet.fetch_index(index)
+            if index.covers:
+                # A single-country index has nothing to break down, so its factsheet
+                # has no country table. Fetching and naming it is all there is to do.
+                countries = list(index.covers)
+                print(f"    as-of {as_of:%Y-%m-%d}, no country table (single-country "
+                      f"index), covers: {', '.join(countries)}")
+            else:
+                region = parse_factsheet.parse_region(pdf, index.issue, index.title)
+                countries = region.countries
+                print(f"    as-of {as_of:%Y-%m-%d}, {len(countries)} countries: "
+                      f"{', '.join(countries)}")
+                _report(region.checks)
+                if not region.ok:
+                    failed.append(index.issue)
+                    _dump(pdf)
         except Exception as exc:
             print(f"    [FAIL] {exc}")
             failed.append(index.issue)
             if pdf is not None:
                 _dump(pdf)
             continue
-        parsed[index.issue] = region
-        print(f"    as-of {region.as_of:%Y-%m-%d}, {len(region.rows)} countries: "
-              f"{', '.join(region.countries)}")
-        _report(region.checks)
-        if not region.ok:
-            failed.append(index.issue)
-            _dump(pdf)
-        if blend and region.as_of != blend.as_of:
-            print(f"    [FAIL] as-of date {region.as_of:%Y-%m-%d} instead of "
+        parsed[index.issue] = countries
+        if blend and as_of != blend.as_of:
+            print(f"    [FAIL] as-of date {as_of:%Y-%m-%d} instead of "
                   f"{blend.as_of:%Y-%m-%d} - the issues are out of step.")
             failed.append(index.issue)
 
     if blend and len(parsed) == len(indices.REGIONS):
         print("\nCoverage of the blend by the five regions")
         home: dict[str, list[str]] = {}
-        for issue, region in parsed.items():
-            for country in region.countries:
+        for issue, countries in parsed.items():
+            for country in countries:
                 home.setdefault(country, []).append(issue)
 
         blend_countries = {r.country for r in blend.rows}

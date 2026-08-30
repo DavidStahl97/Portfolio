@@ -135,10 +135,27 @@ the place. The country names come from the PDF and are English (`Turkiye`,
 `Czech Rep.`) – do not translate them, they are the key by which as-of dates are
 compared.
 
-`REGION_ROW_RE` is the same line one column set shorter, for the five regional
-factsheets: `Australia 105 1,687,922 1.62`. Both patterns are anchored at both ends, so
-a blend row cannot accidentally match the regional pattern - which is what keeps the two
-apart when a PDF turns out to be the wrong one.
+`REGION_ROW_RE` is the same line one column set shorter, for the regional factsheets:
+`Australia 105 1,687,922 1.62`. All patterns are anchored at both ends, so a blend row
+cannot accidentally match the regional one.
+
+The five regional factsheets are **not** all the same shape - that is the thing to know
+before touching `parse_region`:
+
+* **Developed Europe (`AWDEURS`) prints two indices side by side**, itself and FTSE
+  World Europe, exactly like the blend. Countries that are only in the second index
+  carry dashes in the first three columns (`Czech Rep. - - - 4 13,530 0.10`), and
+  dropping those is the point - they are in FTSE Emerging. That is what
+  `REGION_PAIR_RE` and the `None` return of `region_row` are for.
+* **Japan (`WIJPN`) has no `Country/Market Breakdown` page at all.** A single-country
+  index has nothing to break down. Its country therefore cannot be read from anywhere
+  and is named in `indices.py` as `covers=("Japan",)` - the one hand-kept country list
+  in the project, and the only one that cannot go out of date on its own.
+* **The Developed Europe factsheet is denominated in EUR**, the others in USD. Weights
+  and country lists are unaffected, which is all we take from them - but never add net
+  mcap across two regional factsheets without looking at the column header first.
+* The breakdown page also carries the ICB Supersector table, whose rows start with the
+  ICB code. They are skipped because the patterns require a letter first.
 
 The nine checks are not decoration, they are half the point of the project. Two
 tolerances are computed, not guessed:
