@@ -75,7 +75,14 @@ therefore come from PDFs that were kept somewhere - each one is read in with
 including every one of them. Whether the endpoint quietly accepts a date after
 all is what `scripts/probe_archive.py` asks it: the request goes out once per
 candidate parameter name, and an answer counts only if it is a different PDF
-carrying the requested as-of date. It is a probe, not part of the monthly run.
+carrying the requested as-of date. It is a probe, not part of the monthly run;
+`.github/workflows/probe.yml` starts it from Actions, where the answer is the
+log of the run.
+
+Asked on 30 August 2026 for the issue as of 30 June: 266 requests, 19 parameter
+names x 7 date formats x `IsManual` false/true, and every single answer was the
+current issue - byte for byte the same PDF. The endpoint takes no date. Earlier
+months can only come from PDFs that were kept.
 
 Before the first run `data/` is empty – the site then says so instead of showing an
 error. The first as-of date is produced by the first run of "Fetch data".

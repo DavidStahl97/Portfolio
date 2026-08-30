@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       date:
-        description: "Month end to ask for, YYYYMMDD (empty: the previous one)"
+        description: "Month end to ask for, YYYYMMDD (empty: the month before the current issue)"
         required: false
         default: ""
       all_formats:
@@ -16,11 +16,6 @@ on:
         type: boolean
         required: false
         default: false
-  # Temporary: lets the probe run from this branch before it is on main, where
-  # workflow_dispatch would first have to be merged to become startable. Remove
-  # this trigger together with the branch.
-  push:
-    branches: [claude/older-months-drag-v5usz4]
 
 permissions: {}
 
@@ -48,4 +43,4 @@ jobs:
         run: |
           python scripts/probe_archive.py \
             ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
-            ${{ (inputs.all_formats || github.event_name == 'push') && '--all' || '' }} || true
+            ${{ inputs.all_formats && '--all' || '' }} || true
