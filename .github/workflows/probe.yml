@@ -48,4 +48,4 @@ jobs:
         run: |
           python scripts/probe_archive.py \
             ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
-            ${{ inputs.all_formats && '--all' || '' }} || true
+            ${{ (inputs.all_formats || github.event_name == 'push') && '--all' || '' }} || true
