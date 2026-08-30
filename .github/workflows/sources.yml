@@ -44,14 +44,13 @@ jobs:
       # Exits with code 1 if an issue cannot be fetched, is the wrong index, fails a
       # check or if two regions claim the same country. The log carries the report,
       # including the country table when the parser could not read it.
+      #
+      # --write puts the country tables it has just read into data/. One pass over the
+      # six factsheets, not two: update.py would download every one of them again.
       - name: Check the factsheet sources
-        run: python scripts/check_sources.py
+        run: python scripts/check_sources.py --write
 
-      - name: Write the region CSVs
-        if: github.ref_name != github.event.repository.default_branch
-        run: python scripts/update.py --no-export
-
-      - name: Commit them if they changed
+      - name: Commit the region CSVs if they changed
         if: github.ref_name != github.event.repository.default_branch
         run: |
           git config user.name  "github-actions[bot]"

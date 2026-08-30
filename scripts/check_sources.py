@@ -2,10 +2,13 @@
 
     python scripts/check_sources.py
 
-This is the smoke test of the fetch layer. It needs a network and writes nothing into
-`data/` except the throwaway PDFs - writing the region CSVs is `update.py`'s job - so
-it can be run whenever the question is "do the factsheets still arrive and does the
-parser still recognise them".
+This is the smoke test of the fetch layer. It needs a network and, unless `--write` is
+given, changes nothing but the throwaway PDFs - so it can be run whenever the question
+is "do the factsheets still arrive and does the parser still recognise them".
+
+`--write` puts the region CSVs it has just read into `data/`. The monthly run writes
+them too, in `update.py`; the flag exists so a run that only wants to refresh the
+region tables does not have to download all six factsheets a second time.
 
 Three things are checked, in this order:
 
@@ -65,6 +68,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep-going", action="store_true",
                     help="report everything instead of stopping at the blend")
+    ap.add_argument("--write", action="store_true",
+                    help="also write the region CSVs from what was read")
     args = ap.parse_args()
 
     failed: list[str] = []
@@ -104,12 +109,16 @@ def main() -> int:
             else:
                 region = parse_factsheet.parse_region(pdf, index.issue, index.title)
                 countries = region.countries
-                print(f"    as-of {as_of:%Y-%m-%d}, {len(countries)} countries: "
-                      f"{', '.join(countries)}")
+                print(f"    as-of {as_of:%Y-%m-%d}, {len(countries)} countries, "
+                      f"{region.currency}: {', '.join(countries)}")
                 _report(region.checks)
                 if not region.ok:
                     failed.append(index.issue)
                     _dump(pdf)
+                elif args.write:
+                    csv_path = parse_factsheet.region_csv_path(region, DATA)
+                    parse_factsheet.write_region_csv(region, csv_path)
+                    print(f"    wrote {csv_path.relative_to(REPO)}")
         except Exception as exc:
             print(f"    [FAIL] {exc}")
             failed.append(index.issue)
