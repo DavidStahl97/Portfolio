@@ -2,9 +2,16 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- viewport-fit=cover: installed on a phone the page runs under the notch -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="description" content="Country target weights from 50 % market capitalisation and 50 % GDP, out of the FTSE factsheet." />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/pwa/apple-touch-icon.png" />
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<meta name="theme-color" content="#2a78d6" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Portfolio" />
+		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="color-scheme" content="light dark" />
 		%sveltekit.head%
 	</head>
