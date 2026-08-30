@@ -37,16 +37,21 @@ UCITS ETFs, which is how the portfolio is meant to be held:
 | FTSE Japan | `WIJPN` | VJPN |
 | FTSE Developed Asia Pacific ex Japan | `AWDPACXJ` | VAPX |
 
-They are downloaded and checked - is this the index we asked for, does it carry the
-as-of date of the blend - and otherwise left alone: nothing is parsed out of them and
-nothing is versioned from them yet. The point of having them is that the split of the
-world into regions can later be read out of FTSE's own documents instead of a country
-list kept by hand. The five do not cover the All-World completely: Israel is developed
-but sits in FTSE's Middle East & Africa region, so roughly 0.3 % of the index is in
-none of them.
+Their country tables are read with the same checks as the blend's - a factsheet of a
+single index has one set of columns where the blend has two, so it needs its own row
+pattern but not its own idea of what a correct table looks like. Nothing is versioned
+from them yet.
 
-A regional factsheet that cannot be fetched is a warning, not a failed run - the
-country data of the run do not depend on it.
+The point of having them is that the split of the world into regions is read out of
+FTSE's own documents instead of a country list kept by hand: `check_sources.py`
+compares the five country tables against the blend's and names every country that ends
+up in two regions or in none. Israel is the known gap - developed, but in FTSE's
+Middle East & Africa region and therefore in none of the five, which is roughly 0.3 %
+of the index.
+
+A regional factsheet that cannot be fetched during `update.py` is a warning, not a
+failed run - the country data of the run do not depend on it. `check_sources.py` is
+stricter: there any problem is a failure, because looking for one is its whole job.
 
 ## What lives where
 
@@ -60,6 +65,7 @@ only place where any weighting happens.
 | `scripts/indices.py` | the FTSE issues that are downloaded: the blend and the five regions |
 | `scripts/fetch_factsheet.py` | downloads factsheet PDFs |
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
+| `scripts/check_sources.py` | fetches every registered issue and checks it can still be read |
 | `scripts/export_data.py` | reshapes the versioned data into `web/static/data/` (without computing) |
 | `scripts/update.py` | full run: download → parse → check → export |
 | `web/` | the single-page app (SvelteKit, `adapter-static`) |
@@ -88,6 +94,7 @@ Individual steps, if wanted:
 ```bash
 python scripts/fetch_factsheet.py                       # only download the PDF
 python scripts/fetch_factsheet.py --regions             # the five regional factsheets
+python scripts/check_sources.py                         # fetch and read all six
 python scripts/parse_factsheet.py <pdf>                 # only CSV + run.json
 python scripts/export_data.py --out web/static          # only export
 ```
@@ -179,6 +186,7 @@ immediately, instead of silently producing a wrong portfolio. The results go int
 | `.github/workflows/pages.yml` | push to `main` | builds the site from `data/` and publishes it |
 | `.github/workflows/data.yml` | manual | fetches the factsheet, checks it, opens a pull request |
 | `.github/workflows/pr.yml` | pull request | builds the site and attaches it as an artifact |
+| `.github/workflows/sources.yml` | push to `scripts/`, manual | fetches all six factsheets and checks they can be read |
 
 ### The monthly run
 

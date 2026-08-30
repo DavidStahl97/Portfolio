@@ -124,9 +124,8 @@ name in `indices.py` - do not loosen the check.
 
 Fetching a regional factsheet is deliberately allowed to fail: it is a side dataset and
 must not hold the country data of a run hostage, so `update.py` warns and keeps its exit
-code. `parse_factsheet.py` does not touch these PDFs at all yet - `ROW_RE` reads the
-blend's *two* index columns side by side, and a single-index factsheet has one set, so
-parsing them needs its own pattern.
+code. `check_sources.py` is the opposite - it exists to find such problems, so there
+everything is a failure.
 
 ## The parser
 
@@ -135,6 +134,11 @@ parsing them needs its own pattern.
 the place. The country names come from the PDF and are English (`Turkiye`,
 `Czech Rep.`) – do not translate them, they are the key by which as-of dates are
 compared.
+
+`REGION_ROW_RE` is the same line one column set shorter, for the five regional
+factsheets: `Australia 105 1,687,922 1.62`. Both patterns are anchored at both ends, so
+a blend row cannot accidentally match the regional pattern - which is what keeps the two
+apart when a PDF turns out to be the wrong one.
 
 The nine checks are not decoration, they are half the point of the project. Two
 tolerances are computed, not guessed:
@@ -208,6 +212,7 @@ Three of them, with clear responsibilities:
 | `pages.yml` | push to `main` | builds and publishes the site |
 | `data.yml` | manual | fetch the factsheet, check it, branch + commit + pull request, site as an artifact |
 | `pr.yml` | pull request | builds the site and attaches it as an artifact |
+| `sources.yml` | push to `scripts/`, manual | fetches all six factsheets and reads them |
 
 Traps that have already sprung:
 

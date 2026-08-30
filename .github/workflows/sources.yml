@@ -1,0 +1,41 @@
+name: Check the factsheet sources
+
+# The smoke test of the fetch layer: do the six factsheets still arrive, is each of
+# them the index we asked for, and does the parser still read their country tables?
+#
+# Runs on a push that touches the scripts, because that is when the answer can change,
+# and on demand. It changes nothing - no branch, no commit, no artifact except the log.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/**"
+      - "requirements.txt"
+      - ".github/workflows/sources.yml"
+
+permissions: {}
+
+concurrency:
+  group: sources-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sources:
+    name: Fetch and read every registered issue
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Exits with code 1 if an issue cannot be fetched, is the wrong index, fails a
+      # check or if two regions claim the same country. The log carries the report,
+      # including the country table when the parser could not read it.
+      - name: Check the factsheet sources
+        run: python scripts/check_sources.py

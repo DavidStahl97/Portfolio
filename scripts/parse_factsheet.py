@@ -30,7 +30,14 @@ ROW_RE = re.compile(
     r"(?P<cons_gdp>\d{1,5})\s+(?P<mcap_gdp>[\d,]+)\s+(?P<wgt_gdp>\d+\.\d{2})\s+"
     r"(?P<cons_mc>\d{1,5})\s+(?P<mcap_mc>[\d,]+)\s+(?P<wgt_mc>\d+\.\d{2})\s*$"
 )
+# "Australia 105 1,687,922 1.62" - a factsheet of a single index has one set of
+# columns where the blend has two side by side.
+REGION_ROW_RE = re.compile(
+    r"^(?P<country>[A-Za-z][A-Za-z .'\-()&/]*?)\s+"
+    r"(?P<cons>\d{1,5})\s+(?P<mcap>[\d,]+)\s+(?P<wgt>\d+\.\d{2})\s*$"
+)
 DATE_RE = re.compile(r"Data as at:\s*(\d{1,2}\s+\w+\s+\d{4})")
+BREAKDOWN = "Country/Market Breakdown"
 
 # Tolerances: the Wgt columns are rounded to two decimals, i.e. up to 0.005
 # percentage points of rounding error per country.
@@ -72,6 +79,14 @@ def pages_text(pdf: bytes | Path) -> list[str]:
         return [p.extract_text() or "" for p in doc.pages]
 
 
+def breakdown_page(pages: list[str]) -> str:
+    """The page with the country table, out of the pages of a factsheet."""
+    page = next((t for t in pages if BREAKDOWN in t), None)
+    if page is None:
+        raise ValueError(f"Page '{BREAKDOWN}' not found - has the PDF layout changed?")
+    return page
+
+
 def extract_as_of_date(pdf: bytes | Path) -> dt.date:
     for text in pages_text(pdf):
         m = DATE_RE.search(text)
@@ -104,9 +119,7 @@ def parse(pdf: bytes | Path) -> Factsheet:
     if as_of is None:
         raise ValueError("No 'Data as at:' date found in the PDF.")
 
-    page = next((t for t in pages if "Country/Market Breakdown" in t), None)
-    if page is None:
-        raise ValueError("Page 'Country/Market Breakdown' not found.")
+    page = breakdown_page(pages)
 
     rows: list[Row] = []
     totals: Row | None = None
@@ -167,6 +180,99 @@ def _validate(fs: Factsheet) -> None:
         (abs(x.wgt_gdp - 100 * x.mcap_gdp / t.mcap_gdp) for x in r), default=0.0
     )
     _check(fs, "Wgt % consistent with net MCap (GDP)", worst <= 0.02,
+           f"max. deviation {worst:.3f} pp")
+
+    dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
+    _check(fs, "No duplicate countries", not dupes, ", ".join(sorted(dupes)) or "-")
+
+
+# --- factsheets of a single index -------------------------------------------------
+#
+# The five regional factsheets (see indices.py) have one set of columns where the
+# blend has two, so they need their own row pattern - but the same checks: a sum that
+# misses the Totals row means the table was read incompletely, whichever factsheet it
+# came from.
+
+
+@dataclass
+class RegionRow:
+    country: str
+    cons: int
+    mcap: int
+    wgt: float
+
+
+@dataclass
+class RegionFactsheet:
+    issue: str
+    title: str
+    as_of: dt.date
+    rows: list[RegionRow]
+    totals: RegionRow
+    checks: list[tuple[str, bool, str]] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return all(passed for _, passed, _ in self.checks)
+
+    @property
+    def countries(self) -> list[str]:
+        return sorted(r.country for r in self.rows)
+
+
+def parse_region(pdf: bytes | Path, issue: str = "", title: str = "") -> RegionFactsheet:
+    """Reads the country table of a factsheet that covers a single index."""
+    pages = pages_text(pdf)
+    as_of = None
+    for text in pages:
+        m = DATE_RE.search(text)
+        if m:
+            as_of = dt.datetime.strptime(m.group(1), "%d %B %Y").date()
+            break
+    if as_of is None:
+        raise ValueError("No 'Data as at:' date found in the PDF.")
+
+    rows: list[RegionRow] = []
+    totals: RegionRow | None = None
+    for line in breakdown_page(pages).splitlines():
+        m = REGION_ROW_RE.match(line.strip())
+        if not m:
+            continue
+        g = m.groupdict()
+        row = RegionRow(country=g["country"].strip(), cons=int(g["cons"]),
+                        mcap=int(g["mcap"].replace(",", "")), wgt=float(g["wgt"]))
+        if row.country.lower() == "totals":
+            totals = row
+        else:
+            rows.append(row)
+
+    if totals is None:
+        raise ValueError("Totals row not found - has the PDF layout changed?")
+
+    fs = RegionFactsheet(issue=issue, title=title, as_of=as_of, rows=rows, totals=totals)
+    _validate_region(fs)
+    return fs
+
+
+def _validate_region(fs: RegionFactsheet) -> None:
+    r, t = fs.rows, fs.totals
+
+    _check(fs, "At least one country", bool(r), f"{len(r)} countries parsed")
+
+    s = sum(x.cons for x in r)
+    _check(fs, "Sum of constituents == totals", s == t.cons, f"{s} vs. {t.cons}")
+
+    s = sum(x.mcap for x in r)
+    rel = abs(s - t.mcap) / t.mcap if t.mcap else 1.0
+    _check(fs, "Sum of net MCap == totals", rel <= MCAP_TOL_REL,
+           f"{s:,} vs. {t.mcap:,} (delta {s - t.mcap:+,})")
+
+    s = sum(x.wgt for x in r)
+    _check(fs, "Sum of weights == 100 %", abs(s - t.wgt) <= WGT_TOL_PP,
+           f"{s:.2f} vs. {t.wgt:.2f} (delta {s - t.wgt:+.2f} pp)")
+
+    worst = max((abs(x.wgt - 100 * x.mcap / t.mcap) for x in r), default=0.0)
+    _check(fs, "Wgt % consistent with net MCap", worst <= 0.02,
            f"max. deviation {worst:.3f} pp")
 
     dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
