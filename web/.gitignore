@@ -2,6 +2,7 @@ node_modules/
 build/
 .svelte-kit/
 
-# written by export_data.py; static/favicon.svg on the other hand is a source file
+# written by export_data.py; static/favicon.svg and static/pwa/ on the other hand are
+# source files
 static/data/
 static/csv/

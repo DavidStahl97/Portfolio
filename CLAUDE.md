@@ -49,7 +49,7 @@ already stands like that in `data/`. If a computation appears there, that is a b
 | `data/run_<date>.json` | `totals` from the PDF + the nine check results, versioned |
 | `data/factsheets/*.pdf` | ignored, downloadable again at any time |
 | `web/static/data/`, `web/static/csv/` | ignored, produced by `export_data.py` |
-| `web/static/favicon.svg` | **source**, versioned – do not ignore it with the rest of `static/` |
+| `web/static/favicon.svg`, `web/static/pwa/` | **source**, versioned – do not ignore them with the rest of `static/` |
 | `web/build/`, `preview/` | ignored |
 
 `data/` is the truth. The site is rebuilt completely from it on every deploy, including
@@ -100,6 +100,13 @@ two. For checking you can produce synthetic previous months (copy the CSV, chang
 `as_of`, scatter the weights a little, copy the `run_*.json` along) – **delete them
 afterwards**, they do not belong in the repository.
 
+The progressive web app cannot be checked over `file://` – a service worker needs an
+origin. `npm run preview --prefix web` and `http://localhost:4173/` are enough,
+`localhost` counts as secure. Checked means: under *Application* the service worker is
+*activated*, and with *Network → Offline* switched on all four page types still open –
+the start page, an as-of date reached directly by its address, `/history/` and
+`/data/`. The `python3` server above does the same for the build with the path prefix.
+
 ## The parser
 
 `ROW_RE` in `parse_factsheet.py` reads lines of the form
@@ -135,6 +142,18 @@ setup is `DavidStahl97/Komoot-Collection`.
 * **Missing data is a state, not an error.** `+layout.ts` treats a 404 on
   `data/index.json` as "no as-of dates yet" and shows `Empty.svelte`. A thrown error
   becomes a bare "500 Internal Error" in production builds – that has happened before.
+* **Anything that has to exist before JavaScript runs belongs in `app.html`** – the
+  manifest link, the icons, the `<noscript>`. Nothing renders on a server, so a
+  `<svelte:head>` entry arrives only after hydration. The service worker therefore
+  registers itself in `onMount` in `+layout.svelte`: SvelteKit does not run `app.html`
+  through Vite's html plugin, so `vite-plugin-pwa` injects nothing for us.
+* **The manifest and the service worker are generated**, by `SvelteKitPWA` in
+  `vite.config.ts`, out of the finished build – nothing about the precache list is kept
+  in step by hand. Its paths are relative throughout because the site lives under
+  `/<repository>/`, and `globPatterns` names the `.csv` explicitly: the download links
+  of the data page belong to the site as much as the JSON does. Navigations are
+  answered from the precached shell, which is what makes an as-of date address open
+  offline although its URL was never a file.
 * **The mix** lives in `split.svelte.ts` as shared state, default 0.5, remembered in
   `localStorage`. Careful: `Number(null)` is `0`, not `NaN` – without a check for
   `null`, the slider sits at 0 on the first visit.

@@ -3,9 +3,19 @@
 	import { page } from '$app/state';
 	import { day, month } from '$lib/format';
 	import { stampOf } from '$lib/data';
+	import { onMount } from 'svelte';
 	import '../app.css';
 
 	let { data, children } = $props();
+
+	// The manifest is linked from app.html, the only markup that exists before JavaScript
+	// runs - nothing renders on a server, so a <svelte:head> entry would arrive too late.
+	// The service worker registers itself here instead: SvelteKit does not run app.html
+	// through Vite's html plugin, so vite-plugin-pwa injects nothing for us.
+	onMount(async () => {
+		const { registerSW } = await import('virtual:pwa-register');
+		registerSW({ immediate: true });
+	});
 
 	const current = $derived(page.params.date ?? stampOf(data.index.dates[0]?.asOf ?? ''));
 	const history = $derived(page.url.pathname.endsWith('/history/'));
