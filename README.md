@@ -36,6 +36,7 @@ only place where any weighting happens.
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
 | `scripts/export_data.py` | reshapes the versioned data into `web/static/data/` (without computing) |
 | `scripts/update.py` | full run: download → parse → check → export |
+| `scripts/probe_archive.py` | one-off probe: does the endpoint hand out earlier issues? |
 | `web/` | the single-page app (SvelteKit, `adapter-static`) |
 | `web/src/lib/weights.ts` | **the only place where the portfolio is weighted** |
 | `web/src/lib/types.ts` | the data contract with `export_data.py` – change both sides together |
@@ -64,6 +65,17 @@ python scripts/fetch_factsheet.py                       # only download the PDF
 python scripts/parse_factsheet.py <pdf>                 # only CSV + run.json
 python scripts/export_data.py --out web/static          # only export
 ```
+
+### Earlier months
+
+The download endpoint serves the latest issue; it is not documented to take a
+date, and FTSE keeps no public archive of past ones. Earlier as-of dates
+therefore come from PDFs that were kept somewhere - each one is read in with
+`python scripts/update.py --pdf <file>`, and the site is rebuilt from `data/`
+including every one of them. Whether the endpoint quietly accepts a date after
+all is what `scripts/probe_archive.py` asks it: the request goes out once per
+candidate parameter name, and an answer counts only if it is a different PDF
+carrying the requested as-of date. It is a probe, not part of the monthly run.
 
 Before the first run `data/` is empty – the site then says so instead of showing an
 error. The first as-of date is produced by the first run of "Fetch data".
