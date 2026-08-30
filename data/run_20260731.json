@@ -10,47 +10,47 @@
   },
   "checks": [
     {
-      "name": "Anzahl Länder plausibel",
+      "name": "Number of countries plausible",
       "passed": true,
-      "detail": "48 Länder geparst"
+      "detail": "48 countries parsed"
     },
     {
-      "name": "Summe Konstituenten GDP == Totals",
+      "name": "Sum of constituents GDP == totals",
       "passed": true,
       "detail": "4247 vs. 4247"
     },
     {
-      "name": "Summe Konstituenten MCap == Totals",
+      "name": "Sum of constituents MCap == totals",
       "passed": true,
       "detail": "4265 vs. 4265"
     },
     {
-      "name": "Summe Net MCap GDP == Totals",
+      "name": "Sum of net MCap GDP == totals",
       "passed": true,
-      "detail": "98,611,920 vs. 98,611,919 (Delta +1)"
+      "detail": "98,611,920 vs. 98,611,919 (delta +1)"
     },
     {
-      "name": "Summe Net MCap MCap == Totals",
+      "name": "Sum of net MCap MCap == totals",
       "passed": true,
-      "detail": "104,427,490 vs. 104,427,490 (Delta +0)"
+      "detail": "104,427,490 vs. 104,427,490 (delta +0)"
     },
     {
-      "name": "Summe Gewichte GDP == 100 %",
+      "name": "Sum of weights GDP == 100 %",
       "passed": true,
-      "detail": "99.98 vs. 100.00 (Delta -0.02 pp)"
+      "detail": "99.98 vs. 100.00 (delta -0.02 pp)"
     },
     {
-      "name": "Summe Gewichte MCap == 100 %",
+      "name": "Sum of weights MCap == 100 %",
       "passed": true,
-      "detail": "100.02 vs. 100.00 (Delta +0.02 pp)"
+      "detail": "100.02 vs. 100.00 (delta +0.02 pp)"
     },
     {
-      "name": "Wgt % konsistent mit Net MCap (GDP)",
+      "name": "Wgt % consistent with net MCap (GDP)",
       "passed": true,
-      "detail": "max. Abweichung 0.005 pp"
+      "detail": "max. deviation 0.005 pp"
     },
     {
-      "name": "Keine doppelten Länder",
+      "name": "No duplicate countries",
       "passed": true,
       "detail": "-"
     }
