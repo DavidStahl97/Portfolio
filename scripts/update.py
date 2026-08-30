@@ -30,24 +30,51 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def fetch_regions(as_of: dt.date) -> bool:
-    """Downloads the five regional factsheets and reports whether they fit.
+    """Downloads the five regional factsheets, reads them, writes one CSV each.
 
     A regional factsheet is a side dataset: it may not hold the country data of the
-    run hostage. So a problem here is reported and returned, not raised - the export
-    has already happened by the time this runs.
+    run hostage. So a problem here is reported and returned, not raised.
+
+    FTSE Japan gets no CSV - a single-country index has nothing to break down and its
+    factsheet has no country table. It is named in indices.py instead, and that is the
+    one place in this project where a country list is not read out of a document.
     """
     ok = True
     for index in indices.REGIONS:
         print(f"    {index.issue:9s} {index.label}")
         try:
-            _, region_as_of = fetch_factsheet.fetch_index(index)
+            pdf, region_as_of = fetch_factsheet.fetch_index(index)
         except Exception as exc:  # network, wrong issue name, unreadable PDF
             print(f"    [WARN] {index.issue}: {exc}")
             ok = False
             continue
+
         if region_as_of != as_of:
             print(f"    [WARN] {index.issue}: as-of date {region_as_of:%Y-%m-%d} "
                   f"instead of {as_of:%Y-%m-%d} - the issues are out of step.")
+            ok = False
+            continue
+
+        if index.covers:
+            print(f"    {'':9s} no country table (single-country index), "
+                  f"covers: {', '.join(index.covers)}")
+            continue
+
+        try:
+            region = parse_factsheet.parse_region(pdf, index.issue, index.title)
+        except Exception as exc:
+            print(f"    [WARN] {index.issue}: {exc}")
+            ok = False
+            continue
+
+        csv_path = parse_factsheet.region_csv_path(region, REPO / "data")
+        parse_factsheet.write_region_csv(region, csv_path)
+        print(f"    {'':9s} {csv_path.relative_to(REPO)} - {len(region.rows)} "
+              f"countries, {region.currency}")
+        if not region.ok:
+            for name, passed, detail in region.checks:
+                if not passed:
+                    print(f"    [WARN] {index.issue}: {name}: {detail}")
             ok = False
     return ok
 
@@ -84,24 +111,23 @@ def main() -> int:
         print("\nABORTED: checks failed, no data exported for the app.")
         return 1
 
-    if args.no_export:
-        print("3/4 export skipped.")
-    else:
-        # The app is built from data/ - the export is the last step that touches the
-        # data, so that `npm run dev` shows the new as-of date right away.
-        print("3/4 exporting the data for the app ...")
-        if export_data.main([]) != 0:
-            return 1
-
+    # Before the export: the region CSVs written here are what the export groups by.
     # --pdf is the way to run without a network; fetching the regions would defeat it.
     if args.no_regions or args.pdf:
-        print("4/4 regional factsheets skipped.")
+        print("3/4 regional factsheets skipped.")
+    else:
+        print("3/4 fetching and reading the regional factsheets ...")
+        if not fetch_regions(fs.as_of):
+            print("    The country data of this run are unaffected by the above.")
+
+    if args.no_export:
+        print("4/4 export skipped.")
         return 0
 
-    print("4/4 fetching the regional factsheets ...")
-    if not fetch_regions(fs.as_of):
-        print("    The country data of this run are unaffected by the above.")
-    return 0
+    # The app is built from data/ - the export is the last step that touches the data,
+    # so that `npm run dev` shows the new as-of date right away.
+    print("4/4 exporting the data for the app ...")
+    return export_data.main([])
 
 
 if __name__ == "__main__":

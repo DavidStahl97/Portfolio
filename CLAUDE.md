@@ -129,18 +129,22 @@ everything is a failure.
 
 ## The five regions in the app
 
-`data/regions.json` says which country belongs to which of the five regional indices.
-It is the one list in this project that was written by hand - and the only one with a
-check that proves it right on every run: `check_sources.py` compares it against the
-country tables of the five freshly downloaded factsheets and fails on any difference.
-Without that it would go stale silently at the next reclassification, and there is one
-coming: **Greece moves from FTSE Emerging to FTSE Developed Europe on 21 September
-2026.** When the check goes red for that, the fix is to move the country in the file,
-not to loosen the check.
+Which country belongs to which of the five is **not written anywhere by hand**. Each
+regional factsheet's country table becomes `data/region_<ISSUE>_<date>.csv`, written by
+`update.py`, and the grouping is whatever those files say. A reclassification therefore
+arrives on its own - **Greece moves from FTSE Emerging to FTSE Developed Europe on 21
+September 2026** - and `check_sources.py` compares the fresh factsheet against the
+newest committed CSV and names what moved. That difference is an `[INFO]`, not a
+failure: the next run writes the new table, and that is the fix.
 
-`export_data.py` reshapes it into `web/static/data/regions.json`, `+layout.ts` loads it
-alongside `index.json`, and a missing file is a state, not an error - the charts then
-simply do not offer the region view.
+The one exception is FTSE Japan. Its factsheet has no country table at all, so
+`indices.py` carries `covers=("Japan",)`. `check_sources.py` prints that factsheet's
+page headings on every run, so the exception stays checkable rather than believed.
+
+`export_data.py` builds `web/static/data/regions.json` out of the CSVs of the newest
+as-of date - all or nothing, since Japan alone would draw one tiny region and the whole
+rest as uncovered. `+layout.ts` loads it alongside `index.json`, and a missing file is a
+state, not an error: the charts then simply do not offer the region view.
 
 The grouping and the summing live in `weights.ts` with the rest of the weighting:
 `regionGroups` cuts the world into the five indices plus one group for what none of

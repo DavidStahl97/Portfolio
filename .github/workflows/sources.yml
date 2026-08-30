@@ -4,7 +4,12 @@ name: Check the factsheet sources
 # them the index we asked for, and does the parser still read their country tables?
 #
 # Runs on a push that touches the scripts, because that is when the answer can change,
-# and on demand. It changes nothing - no branch, no commit, no artifact except the log.
+# and on demand.
+#
+# On a branch it also writes the region CSVs and commits them. Those files are data,
+# and the only place with a network is here - a working copy has no way to produce
+# them. On the default branch it does not: there, data arrives the way it always has,
+# through the pull request of `data.yml`, and the merge is the approval.
 on:
   workflow_dispatch:
   push:
@@ -23,6 +28,8 @@ jobs:
   sources:
     name: Fetch and read every registered issue
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # only to commit the region CSVs, and only off the default branch
     steps:
       - uses: actions/checkout@v4
 
@@ -39,3 +46,20 @@ jobs:
       # including the country table when the parser could not read it.
       - name: Check the factsheet sources
         run: python scripts/check_sources.py
+
+      - name: Write the region CSVs
+        if: github.ref_name != github.event.repository.default_branch
+        run: python scripts/update.py --no-export
+
+      - name: Commit them if they changed
+        if: github.ref_name != github.event.repository.default_branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/region_*.csv
+          if git diff --cached --quiet; then
+            echo "The region CSVs are unchanged - nothing to commit."
+            exit 0
+          fi
+          git commit -m "Region country tables ${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

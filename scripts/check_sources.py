@@ -3,23 +3,24 @@
     python scripts/check_sources.py
 
 This is the smoke test of the fetch layer. It needs a network and writes nothing into
-`data/` except the throwaway PDFs, so it can be run whenever the question is "do the
-factsheets still arrive and does the parser still recognise them".
+`data/` except the throwaway PDFs - writing the region CSVs is `update.py`'s job - so
+it can be run whenever the question is "do the factsheets still arrive and does the
+parser still recognise them".
 
 Three things are checked, in this order:
 
 1. every issue in `indices.py` downloads and names the index we asked for,
 2. every regional factsheet parses, with the same checks as the blend,
-3. `data/regions.json` still says what the factsheets say, and the five regions cover
-   the countries of the blend - each country in exactly one region, with the gaps and
-   any overlaps named.
+3. the five regions cover the countries of the blend - each country in exactly one
+   region, with the gaps and any overlaps named - and the country tables still say
+   what the newest committed `region_<ISSUE>_<date>.csv` says.
 
-Point 3 is the one worth having. `data/regions.json` is what the app groups countries
-by, and it is a list: without this check it would quietly go stale the first time FTSE
-moves a country, which happens with every reclassification - Greece moves from Emerging
-to Developed Europe in September 2026. The list is written by hand once and proved
-right here, against FTSE's own documents, on every run. Nothing is weighted here; what
-comes out is a report.
+Point 3 is the one worth having. The grouping the app uses is those CSVs, and they are
+snapshots: when FTSE reclassifies a country the fresh factsheet and the committed CSV
+disagree, and that shows up here by name. Greece moves from FTSE Emerging to FTSE
+Developed Europe in September 2026 - this is where it will become visible. A difference
+is reported, not failed: the next run of `update.py` writes the new table, and that is
+the fix. Nothing is weighted here; what comes out is a report.
 
 On a parse failure the lines of the country table are dumped, because a layout change
 is the likely cause and the lines are what you need to see to fix the pattern.
@@ -28,7 +29,6 @@ is the likely cause and the lines are what you need to see to fix the pattern.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -39,7 +39,7 @@ import indices
 import parse_factsheet
 
 REPO = Path(__file__).resolve().parent.parent
-REGIONS_JSON = REPO / "data" / "regions.json"
+DATA = REPO / "data"
 DUMP_LINES = 60
 
 
@@ -93,10 +93,14 @@ def main() -> int:
             pdf, as_of = fetch_factsheet.fetch_index(index)
             if index.covers:
                 # A single-country index has nothing to break down, so its factsheet
-                # has no country table. Fetching and naming it is all there is to do.
+                # has no country table. Fetching and naming it is all there is to do -
+                # the page headings are printed so the exception stays checkable.
                 countries = list(index.covers)
                 print(f"    as-of {as_of:%Y-%m-%d}, no country table (single-country "
                       f"index), covers: {', '.join(countries)}")
+                heads = [t.splitlines()[1] if len(t.splitlines()) > 1 else ""
+                         for t in parse_factsheet.pages_text(pdf)]
+                print(f"    [INFO] its pages: {' | '.join(h.strip() for h in heads)}")
             else:
                 region = parse_factsheet.parse_region(pdf, index.issue, index.title)
                 countries = region.countries
@@ -118,28 +122,22 @@ def main() -> int:
                   f"{blend.as_of:%Y-%m-%d} - the issues are out of step.")
             failed.append(index.issue)
 
-    if len(parsed) == len(indices.REGIONS):
-        print("\ndata/regions.json against the factsheets")
-        stored = json.loads(REGIONS_JSON.read_text(encoding="utf-8"))
-        by_issue = {r["issue"]: r for r in stored["regions"]}
-        for issue, countries in parsed.items():
-            entry = by_issue.get(issue)
-            if entry is None:
-                print(f"    [FAIL] {issue}: missing from data/regions.json")
-                failed.append("regions.json")
-                continue
-            gone = sorted(set(entry["countries"]) - set(countries))
-            new = sorted(set(countries) - set(entry["countries"]))
-            passed = not gone and not new
-            detail = "unchanged" if passed else (
-                f"no longer in the index: {', '.join(gone) or '-'}; "
-                f"newly in it: {', '.join(new) or '-'}")
-            print(f"    [{'OK  ' if passed else 'FAIL'}] {issue}: {detail}")
-            if not passed:
-                failed.append("regions.json")
-        for issue in by_issue.keys() - parsed.keys():
-            print(f"    [FAIL] {issue}: in data/regions.json but not among the indices")
-            failed.append("regions.json")
+    print("\nThe newest committed region CSV against the factsheet")
+    for issue, countries in parsed.items():
+        newest = sorted(DATA.glob(f"region_{issue}_*.csv"))
+        if not newest:
+            print(f"    [INFO] {issue}: no CSV in data/ yet - the next run writes one")
+            continue
+        stored = parse_factsheet.read_region_csv(newest[-1])
+        gone = sorted(set(stored["countries"]) - set(countries))
+        new_in = sorted(set(countries) - set(stored["countries"]))
+        if not gone and not new_in:
+            print(f"    [OK  ] {issue}: unchanged since {stored['as_of']:%Y-%m-%d}")
+        else:
+            # A difference is news, not a fault: FTSE reclassifies, and the next run
+            # writes the new table. Naming it here is how the change gets noticed.
+            print(f"    [INFO] {issue}: changed since {stored['as_of']:%Y-%m-%d} - "
+                  f"gone: {', '.join(gone) or '-'}; new: {', '.join(new_in) or '-'}")
 
     if blend and len(parsed) == len(indices.REGIONS):
         print("\nCoverage of the blend by the five regions")

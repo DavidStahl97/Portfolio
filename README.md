@@ -37,20 +37,21 @@ UCITS ETFs, which is how the portfolio is meant to be held:
 | FTSE Japan | `WIJPN` | VJPN |
 | FTSE Developed Asia Pacific ex Japan | `AWDPACXJ` | VAPX |
 
-Their country tables are read with the same checks as the blend's - most of them have
-one set of columns where the blend has two, so they need their own row pattern but not
-their own idea of what a correct table looks like. Two are special: the Developed Europe
-factsheet prints FTSE World Europe beside itself and marks the countries that are only
-in that second index with dashes, and the Japan factsheet has no country table at all,
-because a single-country index has nothing to break down. Nothing is versioned from any
-of them yet.
+Their country tables are read with the same checks as the blend's and each is written
+to its own versioned CSV, `data/region_<issue>_<date>.csv`. That file is where the
+app's grouping into regions comes from - no country list is kept by hand. Most of the
+five have one set of columns where the blend has two, so they need their own row
+pattern but not their own idea of what a correct table looks like. Two are special: the
+Developed Europe factsheet prints FTSE World Europe beside itself and marks the
+countries that are only in that second index with dashes, and the Japan factsheet has
+no country table at all, because a single-country index has nothing to break down - its
+one country is named in `indices.py`, the single exception.
 
-The point of having them is that the split of the world into regions is read out of
-FTSE's own documents instead of a country list kept by hand: `check_sources.py`
-compares the five country tables against the blend's and names every country that ends
-up in two regions or in none. Israel is the known gap - developed, but in FTSE's
-Middle East & Africa region and therefore in none of the five, which is roughly 0.3 %
-of the index.
+Because the split is read out of FTSE's documents, a reclassification arrives by
+itself: the next run writes a different table, and `check_sources.py` names every
+country that moved, ended up in two regions, or in none. Israel is the known gap -
+developed, but in FTSE's Middle East & Africa region and therefore in none of the five,
+which is roughly 0.3 % of the index.
 
 A regional factsheet that cannot be fetched during `update.py` is a warning, not a
 failed run - the country data of the run do not depend on it. `check_sources.py` is
@@ -66,7 +67,7 @@ only place where any weighting happens.
 | File | Purpose |
 |---|---|
 | `scripts/indices.py` | the FTSE issues that are downloaded: the blend and the five regions |
-| `data/regions.json` | which country is in which of the five regional indices, read off their factsheets |
+| `data/region_<issue>_<date>.csv` | the country table of one regional factsheet, per as-of date |
 | `scripts/fetch_factsheet.py` | downloads factsheet PDFs |
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
 | `scripts/check_sources.py` | fetches every registered issue and checks it can still be read |
@@ -168,7 +169,7 @@ throwaway file and is kept as an Actions artifact.
 |---|---|
 | `data/ftse_country_weights_<date>.csv` | raw data per country: constituents, net mcap, both weights |
 | `data/run_<date>.json` | totals and check results of the run |
-| `data/regions.json` | which country is in which of the five regional indices |
+| `data/region_<issue>_<date>.csv` | country table of one regional factsheet: countries, constituents, net mcap, weight |
 | `data/factsheets/<issue>_<date>.pdf` | original factsheet (not versioned) |
 
 ## Checks
