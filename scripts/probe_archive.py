@@ -67,8 +67,8 @@ def month_end(d: dt.date) -> dt.date:
     return d.replace(day=calendar.monthrange(d.year, d.month)[1])
 
 
-def previous_month_end(today: dt.date) -> dt.date:
-    return month_end(today.replace(day=1) - dt.timedelta(days=1))
+def previous_month_end(d: dt.date) -> dt.date:
+    return month_end(d.replace(day=1) - dt.timedelta(days=1))
 
 
 def request(issue: str, manual: str, extra: dict[str, str], timeout: int) -> requests.Response:
@@ -101,7 +101,8 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--issue", default=fetch_factsheet.DEFAULT_ISSUE)
     ap.add_argument("--date", default=None,
-                    help="month end to ask for, YYYYMMDD (default: the previous one)")
+                    help="month end to ask for, YYYYMMDD "
+                         "(default: the month before the current issue)")
     ap.add_argument("--all", action="store_true",
                     help="every date format per parameter, not just %%Y%%m%%d")
     ap.add_argument("--save", action="store_true",
@@ -111,10 +112,9 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=60)
     args = ap.parse_args()
 
-    target = (dt.datetime.strptime(args.date, "%Y%m%d").date() if args.date
-              else previous_month_end(dt.date.today()))
+    target = dt.datetime.strptime(args.date, "%Y%m%d").date() if args.date else None
 
-    print(f"issue {args.issue}, asking for {target:%d %B %Y}")
+    print(f"issue {args.issue}")
     print("baseline: the current issue, without any date ...")
     baseline = request(args.issue, "false", {}, args.timeout)
     if baseline.status_code != 200 or not baseline.content.startswith(b"%PDF"):
@@ -125,9 +125,17 @@ def main() -> int:
     baseline_as_of = parse_factsheet.extract_as_of_date(baseline.content)
     print(f"  {len(baseline.content)} bytes, as of {baseline_as_of:%d %B %Y}, "
           f"md5 {baseline_md5[:12]}")
-    if baseline_as_of == target:
-        print("  that is already the date asked for - pick an earlier one with --date.")
+
+    # Without --date, the month before the current issue - which is the issue's own
+    # as-of date, not today's month: the factsheet appears with a lag, so late in
+    # August the current issue is still the one as of 31 July.
+    if target is None:
+        target = previous_month_end(baseline_as_of)
+    if target >= baseline_as_of:
+        print(f"  asking for {target:%d %B %Y} is not earlier than that - "
+              f"pick an earlier month with --date.")
         return 1
+    print(f"asking for {target:%d %B %Y}")
 
     formats = FORMATS if args.all else FORMATS[:1]
     hits: list[tuple[str, str, str, bytes]] = []
