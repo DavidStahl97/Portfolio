@@ -127,6 +127,13 @@ must not hold the country data of a run hostage, so `update.py` warns and keeps 
 code. `check_sources.py` is the opposite - it exists to find such problems, so there
 everything is a failure.
 
+A warning nobody reads is not a warning, though: `fetch_regions` closes with one tally
+line starting with `regions:`, and `data.yml` lifts exactly that line out of the log
+into the text of the pull request. That is the only place where a missing region is
+visible without unfolding the log - and one missing region costs the region view
+entirely, because `export_data.py` builds `regions.json` all or nothing. Keep the
+prefix if you touch the line; the workflow greps for it.
+
 ## The five regions in the app
 
 Which country belongs to which of the five is **not written anywhere by hand**. Each

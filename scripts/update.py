@@ -7,9 +7,10 @@ Nothing is weighted and nothing is optimised here. What comes out are the raw da
 the factsheet and the record of their checks; the portfolio mix is set in the app.
 
 Alongside the blended factsheet the run also fetches the five regional factsheets -
-the indices behind the five Vanguard ETFs. They are not parsed yet and nothing is
-versioned from them; they are downloaded so the regional split can be read off FTSE's
-own documents instead of a mapping kept by hand.
+the indices behind the five Vanguard ETFs - and writes each country table to its own
+versioned CSV, so the regional split is read off FTSE's own documents instead of a
+mapping kept by hand. One of the five, FTSE Japan, has no country table; indices.py
+names its country.
 """
 
 from __future__ import annotations
@@ -38,32 +39,45 @@ def fetch_regions(as_of: dt.date) -> bool:
     FTSE Japan gets no CSV - a single-country index has nothing to break down and its
     factsheet has no country table. It is named in indices.py instead, and that is the
     one place in this project where a country list is not read out of a document.
+
+    The tally line always starts with `regions:` - that is what data.yml pulls out of
+    the log to put into the pull request, so a run that is only read as a pull request
+    says on its own whether the region view will be there. Nothing is computed in it,
+    it counts the files just written.
     """
     ok = True
+    written: list[str] = []   # issues whose country table became a CSV
+    named: list[str] = []     # issues without a country table, covered by indices.py
+    missing: list[str] = []   # issues this run has no CSV from at all
+    suspect: list[str] = []   # CSV written, but its own checks did not pass
     for index in indices.REGIONS:
         print(f"    {index.issue:9s} {index.label}")
         try:
             pdf, region_as_of = fetch_factsheet.fetch_index(index)
         except Exception as exc:  # network, wrong issue name, unreadable PDF
             print(f"    [WARN] {index.issue}: {exc}")
+            missing.append(index.issue)
             ok = False
             continue
 
         if region_as_of != as_of:
             print(f"    [WARN] {index.issue}: as-of date {region_as_of:%Y-%m-%d} "
                   f"instead of {as_of:%Y-%m-%d} - the issues are out of step.")
+            missing.append(index.issue)
             ok = False
             continue
 
         if index.covers:
             print(f"    {'':9s} no country table (single-country index), "
                   f"covers: {', '.join(index.covers)}")
+            named.append(index.issue)
             continue
 
         try:
             region = parse_factsheet.parse_region(pdf, index.issue, index.title)
         except Exception as exc:
             print(f"    [WARN] {index.issue}: {exc}")
+            missing.append(index.issue)
             ok = False
             continue
 
@@ -75,7 +89,24 @@ def fetch_regions(as_of: dt.date) -> bool:
             for name, passed, detail in region.checks:
                 if not passed:
                     print(f"    [WARN] {index.issue}: {name}: {detail}")
+            suspect.append(index.issue)
             ok = False
+        written.append(index.issue)
+
+    total = len(indices.REGIONS)
+    tally = (f"regions: {len(written) + len(named)}/{total} read, "
+             f"{len(written)} CSVs written")
+    if named:
+        tally += f", {', '.join(named)} covered by name"
+    if suspect:
+        tally += f", checks failed: {', '.join(suspect)}"
+    if missing:
+        # export_data.py builds regions.json all or nothing, so a single missing
+        # region costs the region view entirely. That belongs in the tally, not only
+        # in the warnings above it.
+        tally += (f", missing: {', '.join(missing)}"
+                  " - the site shows no region view")
+    print(f"    {tally}")
     return ok
 
 
@@ -115,6 +146,8 @@ def main() -> int:
     # --pdf is the way to run without a network; fetching the regions would defeat it.
     if args.no_regions or args.pdf:
         print("3/4 regional factsheets skipped.")
+        print("    regions: skipped - the region CSVs of this as-of date are "
+              "whatever the repository already holds")
     else:
         print("3/4 fetching and reading the regional factsheets ...")
         if not fetch_regions(fs.as_of):
