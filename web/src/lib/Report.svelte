@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Checks from '$lib/Checks.svelte';
 	import CountryTable from '$lib/CountryTable.svelte';
+	import PieCharts from '$lib/PieCharts.svelte';
 	import SplitSlider from '$lib/SplitSlider.svelte';
 	import Tiles from '$lib/Tiles.svelte';
 	import WeightChart from '$lib/WeightChart.svelte';
@@ -37,6 +38,9 @@
 
 <h2>Mix</h2>
 <SplitSlider />
+
+<h2>Market capitalisation, GDP and the mix</h2>
+<PieCharts countries={report.countries} {split} />
 
 <h2>Largest 15 positions</h2>
 <WeightChart {rows} {prev} />
