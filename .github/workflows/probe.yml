@@ -1,0 +1,51 @@
+name: Probe archive
+
+# Asks the download endpoint whether it hands out earlier issues than the current
+# one (scripts/probe_archive.py). A one-off question, not part of the monthly run:
+# it writes nothing, commits nothing and opens no pull request - the answer is in
+# the log of the run.
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Month end to ask for, YYYYMMDD (empty: the previous one)"
+        required: false
+        default: ""
+      all_formats:
+        description: "Every date format per parameter, not just YYYYMMDD"
+        type: boolean
+        required: false
+        default: false
+  # Temporary: lets the probe run from this branch before it is on main, where
+  # workflow_dispatch would first have to be merged to become startable. Remove
+  # this trigger together with the branch.
+  push:
+    branches: [claude/older-months-drag-v5usz4]
+
+permissions: {}
+
+concurrency:
+  group: probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Ask the endpoint for an earlier issue
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe
+        # Exit code 1 means "no earlier issue" - an answer, not a broken run.
+        run: |
+          python scripts/probe_archive.py \
+            ${{ inputs.date && format('--date {0}', inputs.date) || '' }} \
+            ${{ inputs.all_formats && '--all' || '' }} || true
