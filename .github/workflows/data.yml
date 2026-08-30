@@ -78,8 +78,16 @@ jobs:
         run: |
           stamp="${{ steps.run.outputs.as_of }}"
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # update.py prints one line beginning with "regions:" - the tally of the
+          # five regional factsheets. Without it in the text nobody sees a missing
+          # region without unfolding the log, and a missing region means the site
+          # has no region view.
+          regions="$(sed -n 's/^ *regions: //p' run.log | head -1)"
+          : "${regions:=no tally in the log}"
           {
             echo "Checked raw data of the FTSE factsheet for the as-of date \`$stamp\`."
+            echo
+            echo "Regional factsheets: $regions."
             echo
             echo "The finished site with this as-of date is available as the artifact **site-$stamp**"
             echo "on the [run that opened this pull request]($run_url) — download it,"

@@ -214,9 +214,17 @@ immediately, instead of silently producing a wrong portfolio. The results go int
 
 1. downloads the current factsheet and **checks** it – if a check breaks, it ends
    here, with no branch and no pull request,
-2. creates `data/<YYYYMMDD>`, commits the CSV and `run_*.json`, pushes,
-3. builds the site and uploads it as the artifact **`site-<YYYYMMDD>`**,
-4. opens the pull request and links the artifact in it.
+2. fetches the five regional factsheets and writes their country tables to
+   `data/region_<issue>_<date>.csv`,
+3. creates `data/<YYYYMMDD>`, commits the CSVs and `run_*.json`, pushes,
+4. builds the site and uploads it as the artifact **`site-<YYYYMMDD>`**,
+5. opens the pull request and links the artifact in it.
+
+The text of the pull request names the tally of step 2 – how many of the five were
+read, how many CSVs were written, which are missing. A regional factsheet that cannot
+be fetched is a warning and not a failed run, so that line is what makes it visible:
+one missing region and the site shows no region view, because `regions.json` is built
+all or nothing.
 
 You download the artifact, unpack it and look at the site:
 
