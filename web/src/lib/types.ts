@@ -43,6 +43,33 @@ export interface Report {
 	countries: Country[];
 }
 
+/** One of the five regional indices, with the countries its factsheet lists.
+ *
+ * The grouping is FTSE's, not ours: every country here stands in the country table of
+ * that index's own factsheet, read into `data/region_<ISSUE>_<date>.csv` by the run.
+ * Countries of the All-World that are in none of the five are not listed anywhere here
+ * - Israel is developed but sits in FTSE's Middle East & Africa region - and the app
+ * gives them their own slice. */
+export interface Region {
+	/** FTSE issue name of the factsheet, e.g. AWNAMERS */
+	issue: string;
+	/** index name as it stands in the factsheet */
+	index: string;
+	/** the Vanguard UCITS ETF that tracks it */
+	etf: string;
+	countries: string[];
+	/** where the country list came from: the CSV, or indices.py for FTSE Japan, whose
+	 *  factsheet has no country table because a single-country index has nothing to
+	 *  break down */
+	source: string;
+}
+
+export interface Regions {
+	/** as-of date of the factsheets the grouping was read from */
+	readFrom: string;
+	regions: Region[];
+}
+
 export interface AsOfDate {
 	asOf: string;
 	ok: boolean;

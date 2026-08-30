@@ -9,8 +9,9 @@ describes - the other side of the same contract, and it has to be changed along
 whenever a field name changes here.
 
 The sources are the versioned `ftse_country_weights_<date>.csv` files together with
-their `run_<date>.json`. The factsheet PDF is not needed, so the whole history can be
-re-exported at any time.
+their `run_<date>.json`, plus the `region_<ISSUE>_<date>.csv` files for the grouping
+into the five regional indices. The factsheet PDFs are not needed, so the whole
+history can be re-exported at any time.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import indices
 import parse_factsheet
 
 REPO = Path(__file__).resolve().parent.parent
@@ -55,6 +57,46 @@ def report_payload(fs) -> dict:
     }
 
 
+def regions_payload(as_of: dt.date) -> dict | None:
+    """The grouping into the five regional indices, as the app needs it.
+
+    Reshaped, not decided: every country here stands in the country table of that
+    index's own factsheet, read into `data/region_<ISSUE>_<date>.csv` by the run. The
+    order is the order of the registry, so a region cannot change place - and colour -
+    between two as-of dates.
+
+    FTSE Japan has no such CSV: a single-country index has nothing to break down, so
+    its factsheet carries no country table and `indices.py` names the country instead.
+
+    Returns None when no region CSV exists for this as-of date. Missing is a state,
+    not an error - the app then simply offers no region view.
+    """
+    stamp = f"{as_of:%Y%m%d}"
+    out, from_csv = [], 0
+    for index in indices.REGIONS:
+        path = DATA / parse_factsheet.REGION_CSV.format(issue=index.issue, stamp=stamp)
+        if path.exists():
+            read = parse_factsheet.read_region_csv(path)
+            countries, source = read["countries"], path.name
+            from_csv += 1
+        elif index.covers:
+            countries, source = sorted(index.covers), "scripts/indices.py"
+        else:
+            continue
+        out.append({
+            "issue": index.issue,
+            "index": index.title,
+            "etf": index.etf,
+            "countries": countries,
+            "source": source,
+        })
+    # Japan alone is not a grouping - without the read tables the charts would show one
+    # tiny region and the whole rest as uncovered. All or nothing.
+    if not from_csv:
+        return None
+    return {"readFrom": as_of.isoformat(), "regions": out}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=REPO / "web" / "static")
@@ -80,6 +122,16 @@ def main(argv: list[str] | None = None) -> int:
         (out / f"{stamp}.json").write_text(
             json.dumps(report_payload(fs), ensure_ascii=False) + "\n", encoding="utf-8"
         )
+
+    # Grouped by the as-of date of the newest run: that is the one the charts show.
+    regions = regions_payload(runs[0].as_of)
+    if regions:
+        (out / "regions.json").write_text(
+            json.dumps(regions, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    else:
+        (out / "regions.json").unlink(missing_ok=True)
+        print("no region CSVs for the newest as-of date - the region view stays off")
 
     index = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),

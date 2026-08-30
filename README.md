@@ -23,6 +23,40 @@ Both are therefore delimited identically (same universe, same as-of date) – ex
 what a 50/50 mix needs. The PDF is freely available, and the download endpoint always
 serves the latest issue.
 
+### The five regional factsheets
+
+Next to the blend the run fetches the factsheets of the five indices that together
+tile the same universe as the All-World - the indices behind Vanguard's five regional
+UCITS ETFs, which is how the portfolio is meant to be held:
+
+| Index | FTSE issue | ETF |
+|---|---|---|
+| FTSE North America | `AWNAMERS` | VNRT |
+| FTSE Developed Europe | `AWDEURS` | VEUR |
+| FTSE Emerging | `AWALLE` | VFEM |
+| FTSE Japan | `WIJPN` | VJPN |
+| FTSE Developed Asia Pacific ex Japan | `AWDPACXJ` | VAPX |
+
+Their country tables are read with the same checks as the blend's and each is written
+to its own versioned CSV, `data/region_<issue>_<date>.csv`. That file is where the
+app's grouping into regions comes from - no country list is kept by hand. Most of the
+five have one set of columns where the blend has two, so they need their own row
+pattern but not their own idea of what a correct table looks like. Two are special: the
+Developed Europe factsheet prints FTSE World Europe beside itself and marks the
+countries that are only in that second index with dashes, and the Japan factsheet has
+no country table at all, because a single-country index has nothing to break down - its
+one country is named in `indices.py`, the single exception.
+
+Because the split is read out of FTSE's documents, a reclassification arrives by
+itself: the next run writes a different table, and `check_sources.py` names every
+country that moved, ended up in two regions, or in none. Israel is the known gap -
+developed, but in FTSE's Middle East & Africa region and therefore in none of the five,
+which is roughly 0.3 % of the index.
+
+A regional factsheet that cannot be fetched during `update.py` is a warning, not a
+failed run - the country data of the run do not depend on it. `check_sources.py` is
+stricter: there any problem is a failure, because looking for one is its whole job.
+
 ## What lives where
 
 Python **reads and checks**; it computes nothing and writes neither markup nor
@@ -32,8 +66,11 @@ only place where any weighting happens.
 
 | File | Purpose |
 |---|---|
-| `scripts/fetch_factsheet.py` | downloads the current factsheet PDF |
+| `scripts/indices.py` | the FTSE issues that are downloaded: the blend and the five regions |
+| `data/region_<issue>_<date>.csv` | the country table of one regional factsheet, per as-of date |
+| `scripts/fetch_factsheet.py` | downloads factsheet PDFs |
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
+| `scripts/check_sources.py` | fetches every registered issue and checks it can still be read |
 | `scripts/export_data.py` | reshapes the versioned data into `web/static/data/` (without computing) |
 | `scripts/update.py` | full run: download → parse → check → export |
 | `web/` | the single-page app (SvelteKit, `adapter-static`) |
@@ -61,6 +98,8 @@ Individual steps, if wanted:
 
 ```bash
 python scripts/fetch_factsheet.py                       # only download the PDF
+python scripts/fetch_factsheet.py --regions             # the five regional factsheets
+python scripts/check_sources.py                         # fetch and read all six
 python scripts/parse_factsheet.py <pdf>                 # only CSV + run.json
 python scripts/export_data.py --out web/static          # only export
 ```
@@ -77,6 +116,20 @@ error. The first as-of date is produced by the first run of "Fetch data".
   not with the newest state.
 * **History** – target weight of the eight largest countries across all as-of dates.
 * **Data** – all as-of dates with their CSVs to download.
+* **Donuts: market capitalisation, GDP and the mix** – the three weightings side by
+  side, cut identically so they are comparable slice by slice. A switch changes what a
+  slice is: the largest single countries, or the **five regional indices** – the
+  building blocks of the five Vanguard regional ETFs, weighted by the same slider. What
+  the five do not cover keeps its own neutral slice; today that is Israel, which is
+  developed but sits in FTSE's Middle East & Africa region.
+* **What the five ETFs deliver** – the country table carries two more columns when the
+  regional data are there: the weight the five regional ETFs actually produce, and its
+  distance from the target. They hit a region exactly and then weight the countries
+  inside it by market capitalisation, because that is how the regional indices are
+  built – so the GDP half of the mix survives *between* the regions and is undone
+  *within* them. The tile says how much of the portfolio that moves: 12.4 % at 50/50,
+  and 0 % at pure market capitalisation, where there is nothing to undo. Almost all of
+  it sits in Emerging, where Taiwan comes in far above its target and China far below.
 * **Mix slider** – 50/50 by default, freely adjustable; the site recomputes
   immediately. The setting applies to every page, survives a change of the as-of date
   and is remembered in the browser. It does not touch the data: only the unweighted
@@ -124,6 +177,7 @@ throwaway file and is kept as an Actions artifact.
 |---|---|
 | `data/ftse_country_weights_<date>.csv` | raw data per country: constituents, net mcap, both weights |
 | `data/run_<date>.json` | totals and check results of the run |
+| `data/region_<issue>_<date>.csv` | country table of one regional factsheet: countries, constituents, net mcap, weight |
 | `data/factsheets/<issue>_<date>.pdf` | original factsheet (not versioned) |
 
 ## Checks
@@ -152,6 +206,7 @@ immediately, instead of silently producing a wrong portfolio. The results go int
 | `.github/workflows/pages.yml` | push to `main` | builds the site from `data/` and publishes it |
 | `.github/workflows/data.yml` | manual | fetches the factsheet, checks it, opens a pull request |
 | `.github/workflows/pr.yml` | pull request | builds the site and attaches it as an artifact |
+| `.github/workflows/sources.yml` | push to `scripts/`, manual | fetches all six factsheets and checks they can be read |
 
 ### The monthly run
 

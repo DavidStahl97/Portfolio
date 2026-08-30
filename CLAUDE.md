@@ -107,6 +107,79 @@ origin. `npm run preview --prefix web` and `http://localhost:4173/` are enough,
 the start page, an as-of date reached directly by its address, `/history/` and
 `/data/`. The `python3` server above does the same for the build with the path prefix.
 
+## The issue registry
+
+`scripts/indices.py` lists the six FTSE issues that get downloaded: the blend
+(`GDPWLDS`, the one the country data come from) and the five regional indices behind
+Vanguard's five UCITS ETFs. It holds names, not numbers - the regional split is FTSE's,
+and combining anything out of it would belong in the app anyway.
+
+**The five issue names have not yet been confirmed against a live download.** They were
+read off FTSE's own factsheet URLs, but the download endpoint is unreachable from the
+development container, so the first run that has a network is the one that proves them.
+That is what `verify_title` is for: the endpoint answers an unknown issue name with a
+PDF of some other index rather than with an error, so without the check a typo becomes
+a plausible-looking file of the wrong index. If a title check fails, correct the issue
+name in `indices.py` - do not loosen the check.
+
+Fetching a regional factsheet is deliberately allowed to fail: it is a side dataset and
+must not hold the country data of a run hostage, so `update.py` warns and keeps its exit
+code. `check_sources.py` is the opposite - it exists to find such problems, so there
+everything is a failure.
+
+## The five regions in the app
+
+Which country belongs to which of the five is **not written anywhere by hand**. Each
+regional factsheet's country table becomes `data/region_<ISSUE>_<date>.csv`, written by
+`update.py`, and the grouping is whatever those files say. A reclassification therefore
+arrives on its own - **Greece moves from FTSE Emerging to FTSE Developed Europe on 21
+September 2026** - and `check_sources.py` compares the fresh factsheet against the
+newest committed CSV and names what moved. That difference is an `[INFO]`, not a
+failure: the next run writes the new table, and that is the fix.
+
+The one exception is FTSE Japan. Its factsheet has no country table at all, so
+`indices.py` carries `covers=("Japan",)`. `check_sources.py` prints that factsheet's
+page headings on every run, so the exception stays checkable rather than believed - as
+of July 2026 they are `FTSE Japan Index`, `Top 10 Constituents`, `bmkImage1 bmkImage2
+bmkImage3`, and there is nothing to read a country from. If a breakdown page ever
+appears there, drop the `covers` and let the CSV take over.
+
+`export_data.py` builds `web/static/data/regions.json` out of the CSVs of the newest
+as-of date - all or nothing, since Japan alone would draw one tiny region and the whole
+rest as uncovered. `+layout.ts` loads it alongside `index.json`, and a missing file is a
+state, not an error: the charts then simply do not offer the region view.
+
+The grouping and the summing live in `weights.ts` with the rest of the weighting:
+`regionGroups` cuts the world into the five indices plus one group for what none of
+them covers, `countryGroups` does the same per country, and `shares` sums either under
+whichever way of valuing a country a chart asks for. `PieCharts.svelte` only draws.
+Two things there are deliberate and easy to undo by accident:
+
+* **The region order is the file order, not the weight order.** The colour belongs to
+  the region; sorting by weight would let a region change colour when the slider moves.
+* **The uncovered group is never a series colour**, it gets `--baseline` like the
+  remainder. A country the five ETFs cannot buy must not look like one they can.
+
+## What the five ETFs deliver
+
+`viaRegions` and `activeShare` in `weights.ts` answer the question the region view
+raises: if the portfolio is *held* as the five regional ETFs, what country weights come
+out? The five hit their region exactly, and then weight the countries inside it by
+market capitalisation - that is what an index fund tracking a regional index holds.
+So the GDP half of the mix survives between the regions and is undone within them.
+
+Two properties are worth keeping, because they are what makes the figure trustworthy:
+
+* **At `split = 1` the active share is exactly 0.** Pure market capitalisation is what
+  the ETFs hold anyway, so there is nothing left to distort. If that number ever comes
+  out non-zero, the weighting is wrong, not the display.
+* **It is linear in the tilt** - 0, 6.18, 12.37, 18.55, 24.74 % at 100/75/50/25/0 %
+  market capitalisation. Same reason: both sides of the difference are linear in
+  `split`.
+
+Countries in none of the five keep their target weight; they are not bought through a
+regional ETF, so there is nothing to distort. Israel is the case.
+
 ## The parser
 
 `ROW_RE` in `parse_factsheet.py` reads lines of the form
@@ -114,6 +187,28 @@ the start page, an as-of date reached directly by its address, `/history/` and
 the place. The country names come from the PDF and are English (`Turkiye`,
 `Czech Rep.`) – do not translate them, they are the key by which as-of dates are
 compared.
+
+`REGION_ROW_RE` is the same line one column set shorter, for the regional factsheets:
+`Australia 105 1,687,922 1.62`. All patterns are anchored at both ends, so a blend row
+cannot accidentally match the regional one.
+
+The five regional factsheets are **not** all the same shape - that is the thing to know
+before touching `parse_region`:
+
+* **Developed Europe (`AWDEURS`) prints two indices side by side**, itself and FTSE
+  World Europe, exactly like the blend. Countries that are only in the second index
+  carry dashes in the first three columns (`Czech Rep. - - - 4 13,530 0.10`), and
+  dropping those is the point - they are in FTSE Emerging. That is what
+  `REGION_PAIR_RE` and the `None` return of `region_row` are for.
+* **Japan (`WIJPN`) has no `Country/Market Breakdown` page at all.** A single-country
+  index has nothing to break down. Its country therefore cannot be read from anywhere
+  and is named in `indices.py` as `covers=("Japan",)` - the one hand-kept country list
+  in the project, and the only one that cannot go out of date on its own.
+* **The Developed Europe factsheet is denominated in EUR**, the others in USD. Weights
+  and country lists are unaffected, which is all we take from them - but never add net
+  mcap across two regional factsheets without looking at the column header first.
+* The breakdown page also carries the ICB Supersector table, whose rows start with the
+  ICB code. They are skipped because the patterns require a letter first.
 
 The nine checks are not decoration, they are half the point of the project. Two
 tolerances are computed, not guessed:
@@ -187,6 +282,7 @@ Three of them, with clear responsibilities:
 | `pages.yml` | push to `main` | builds and publishes the site |
 | `data.yml` | manual | fetch the factsheet, check it, branch + commit + pull request, site as an artifact |
 | `pr.yml` | pull request | builds the site and attaches it as an artifact |
+| `sources.yml` | push to `scripts/`, manual | fetches all six factsheets and reads them |
 
 Traps that have already sprung:
 

@@ -3,7 +3,16 @@
 	import type { RankedCountry } from '$lib/weights';
 	import type { Report } from '$lib/types';
 
-	let { report, rows }: { report: Report; rows: RankedCountry[] } = $props();
+	let {
+		report,
+		rows,
+		active = null
+	}: {
+		report: Report;
+		rows: RankedCountry[];
+		/** Active share against the five regional ETFs, null when they are not known. */
+		active?: number | null;
+	} = $props();
 
 	const top10 = $derived(rows.slice(0, 10).reduce((a, r) => a + r.target, 0));
 	const usa = $derived(rows.find((r) => r.country === 'USA'));
@@ -25,6 +34,13 @@
 			<div class="label">USA target weight</div>
 			<div class="value">{pct(usa.target)} %</div>
 			<div class="note">MCap {pct(usa.mcap)} % / GDP {pct(usa.gdp)} %</div>
+		</div>
+	{/if}
+	{#if active !== null}
+		<div class="tile">
+			<div class="label">Held as 5 ETFs</div>
+			<div class="value">{pct(active)} %</div>
+			<div class="note">in another country than intended</div>
 		</div>
 	{/if}
 	<div class="tile">

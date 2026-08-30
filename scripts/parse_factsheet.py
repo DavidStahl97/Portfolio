@@ -30,7 +30,26 @@ ROW_RE = re.compile(
     r"(?P<cons_gdp>\d{1,5})\s+(?P<mcap_gdp>[\d,]+)\s+(?P<wgt_gdp>\d+\.\d{2})\s+"
     r"(?P<cons_mc>\d{1,5})\s+(?P<mcap_mc>[\d,]+)\s+(?P<wgt_mc>\d+\.\d{2})\s*$"
 )
+# "Australia 105 1,687,922 1.62" - most regional factsheets have one set of columns
+# where the blend has two side by side.
+REGION_ROW_RE = re.compile(
+    r"^(?P<country>[A-Za-z][A-Za-z .'\-()&/]*?)\s+"
+    r"(?P<cons>\d{1,5})\s+(?P<mcap>[\d,]+)\s+(?P<wgt>\d+\.\d{2})\s*$"
+)
+# ... but not all: the Developed Europe factsheet prints FTSE World Europe beside
+# itself and writes a dash where a country belongs to that second index only.
+#   "Austria 9 75,954 0.59 9 75,954 0.58"
+#   "Czech Rep. - - - 4 13,530 0.10"        <- not in FTSE Developed Europe
+_SET = r"(?:(?P<cons>\d{1,5})\s+(?P<mcap>[\d,]+)\s+(?P<wgt>\d+\.\d{2})|-\s+-\s+-)"
+REGION_PAIR_RE = re.compile(
+    r"^(?P<country>[A-Za-z][A-Za-z .'\-()&/]*?)\s+" + _SET +
+    r"\s+(?:\d{1,5}|-)\s+(?:[\d,]+|-)\s+(?:\d+\.\d{2}|-)\s*$"
+)
 DATE_RE = re.compile(r"Data as at:\s*(\d{1,2}\s+\w+\s+\d{4})")
+BREAKDOWN = "Country/Market Breakdown"
+# "Country/Market No. of Cons Net MCap (EURm) Wgt %" - not every factsheet is in USD,
+# the Developed Europe one is in EUR. The column header is the only place that says so.
+CURRENCY_RE = re.compile(r"Net MCap\s*\(([A-Z]{3})m\)")
 
 # Tolerances: the Wgt columns are rounded to two decimals, i.e. up to 0.005
 # percentage points of rounding error per country.
@@ -67,13 +86,21 @@ def _open(pdf: bytes | Path):
     return pdfplumber.open(str(pdf))
 
 
-def _pages_text(pdf: bytes | Path) -> list[str]:
+def pages_text(pdf: bytes | Path) -> list[str]:
     with _open(pdf) as doc:
         return [p.extract_text() or "" for p in doc.pages]
 
 
+def breakdown_page(pages: list[str]) -> str:
+    """The page with the country table, out of the pages of a factsheet."""
+    page = next((t for t in pages if BREAKDOWN in t), None)
+    if page is None:
+        raise ValueError(f"Page '{BREAKDOWN}' not found - has the PDF layout changed?")
+    return page
+
+
 def extract_as_of_date(pdf: bytes | Path) -> dt.date:
-    for text in _pages_text(pdf):
+    for text in pages_text(pdf):
         m = DATE_RE.search(text)
         if m:
             return dt.datetime.strptime(m.group(1), "%d %B %Y").date()
@@ -94,7 +121,7 @@ def _to_row(m: re.Match) -> Row:
 
 
 def parse(pdf: bytes | Path) -> Factsheet:
-    pages = _pages_text(pdf)
+    pages = pages_text(pdf)
     as_of = None
     for text in pages:
         m = DATE_RE.search(text)
@@ -104,9 +131,7 @@ def parse(pdf: bytes | Path) -> Factsheet:
     if as_of is None:
         raise ValueError("No 'Data as at:' date found in the PDF.")
 
-    page = next((t for t in pages if "Country/Market Breakdown" in t), None)
-    if page is None:
-        raise ValueError("Page 'Country/Market Breakdown' not found.")
+    page = breakdown_page(pages)
 
     rows: list[Row] = []
     totals: Row | None = None
@@ -171,6 +196,162 @@ def _validate(fs: Factsheet) -> None:
 
     dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
     _check(fs, "No duplicate countries", not dupes, ", ".join(sorted(dupes)) or "-")
+
+
+# --- factsheets of a single index -------------------------------------------------
+#
+# The five regional factsheets (see indices.py) have one set of columns where the
+# blend has two, so they need their own row pattern - but the same checks: a sum that
+# misses the Totals row means the table was read incompletely, whichever factsheet it
+# came from.
+
+
+@dataclass
+class RegionRow:
+    country: str
+    cons: int
+    mcap: int
+    wgt: float
+
+
+@dataclass
+class RegionFactsheet:
+    issue: str
+    title: str
+    as_of: dt.date
+    currency: str
+    rows: list[RegionRow]
+    totals: RegionRow
+    checks: list[tuple[str, bool, str]] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return all(passed for _, passed, _ in self.checks)
+
+    @property
+    def countries(self) -> list[str]:
+        return sorted(r.country for r in self.rows)
+
+
+def parse_region(pdf: bytes | Path, issue: str = "", title: str = "") -> RegionFactsheet:
+    """Reads the country table of a factsheet that covers a single index."""
+    pages = pages_text(pdf)
+    as_of = None
+    for text in pages:
+        m = DATE_RE.search(text)
+        if m:
+            as_of = dt.datetime.strptime(m.group(1), "%d %B %Y").date()
+            break
+    if as_of is None:
+        raise ValueError("No 'Data as at:' date found in the PDF.")
+
+    page = breakdown_page(pages)
+    currency = CURRENCY_RE.search(page)
+    if currency is None:
+        raise ValueError("No 'Net MCap (<CUR>m)' column header - which currency is this?")
+
+    rows: list[RegionRow] = []
+    totals: RegionRow | None = None
+    for line in page.splitlines():
+        row = region_row(line.strip())
+        if row is None:
+            continue
+        if row.country.lower() == "totals":
+            totals = row
+        else:
+            rows.append(row)
+
+    if totals is None:
+        raise ValueError("Totals row not found - has the PDF layout changed?")
+
+    fs = RegionFactsheet(issue=issue, title=title, as_of=as_of,
+                         currency=currency.group(1), rows=rows, totals=totals)
+    _validate_region(fs)
+    return fs
+
+
+def region_row(line: str) -> RegionRow | None:
+    """One line of the country table, or None if the line is not one.
+
+    None also for a country that carries dashes in the columns of the index we are
+    reading: it belongs to the index printed next to it, not to this one. That is how
+    the Developed Europe factsheet lists Greece, Turkiye and the rest of FTSE World
+    Europe - and dropping them is the whole point, they are in FTSE Emerging.
+    """
+    m = REGION_PAIR_RE.match(line) or REGION_ROW_RE.match(line)
+    if m is None or m.group("cons") is None:
+        return None
+    return RegionRow(country=m.group("country").strip(), cons=int(m.group("cons")),
+                     mcap=int(m.group("mcap").replace(",", "")), wgt=float(m.group("wgt")))
+
+
+def _validate_region(fs: RegionFactsheet) -> None:
+    r, t = fs.rows, fs.totals
+
+    _check(fs, "At least one country", bool(r), f"{len(r)} countries parsed")
+
+    s = sum(x.cons for x in r)
+    _check(fs, "Sum of constituents == totals", s == t.cons, f"{s} vs. {t.cons}")
+
+    s = sum(x.mcap for x in r)
+    rel = abs(s - t.mcap) / t.mcap if t.mcap else 1.0
+    _check(fs, "Sum of net MCap == totals", rel <= MCAP_TOL_REL,
+           f"{s:,} vs. {t.mcap:,} (delta {s - t.mcap:+,})")
+
+    s = sum(x.wgt for x in r)
+    _check(fs, "Sum of weights == 100 %", abs(s - t.wgt) <= WGT_TOL_PP,
+           f"{s:.2f} vs. {t.wgt:.2f} (delta {s - t.wgt:+.2f} pp)")
+
+    worst = max((abs(x.wgt - 100 * x.mcap / t.mcap) for x in r), default=0.0)
+    _check(fs, "Wgt % consistent with net MCap", worst <= 0.02,
+           f"max. deviation {worst:.3f} pp")
+
+    dupes = {x.country for x in r if [y.country for y in r].count(x.country) > 1}
+    _check(fs, "No duplicate countries", not dupes, ", ".join(sorted(dupes)) or "-")
+
+
+REGION_CSV = "region_{issue}_{stamp}.csv"
+
+
+def region_csv_path(fs: RegionFactsheet, data: Path) -> Path:
+    return data / REGION_CSV.format(issue=fs.issue, stamp=f"{fs.as_of:%Y%m%d}")
+
+
+def write_region_csv(fs: RegionFactsheet, path: Path) -> None:
+    """One CSV per regional factsheet - the country table as it stands in the PDF.
+
+    `currency` is a column because the factsheets do not agree on one: Developed Europe
+    is in EUR, the others in USD. Weights are per index and unaffected, but a net mcap
+    added across two of these files without looking at that column would be nonsense.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["as_of", "issue", "index", "currency", "country",
+                    "cons", "net_mcap", "weight_pct"])
+        for x in sorted(fs.rows, key=lambda r: r.country):
+            w.writerow([fs.as_of.isoformat(), fs.issue, fs.title, fs.currency,
+                        x.country, x.cons, x.mcap, f"{x.wgt:.2f}"])
+
+
+def read_region_csv(path: Path) -> dict:
+    """The header fields and the country list of one region CSV.
+
+    Deliberately not a RegionFactsheet: the checks of a run belong to the run, and
+    what is read back is what the export needs - which index, and which countries.
+    """
+    with path.open(encoding="utf-8") as fh:
+        recs = list(csv.DictReader(fh))
+    if not recs:
+        raise ValueError(f"{path.name} has no rows.")
+    head = recs[0]
+    return {
+        "as_of": dt.date.fromisoformat(head["as_of"]),
+        "issue": head["issue"],
+        "index": head["index"],
+        "currency": head["currency"],
+        "countries": sorted(r["country"] for r in recs),
+    }
 
 
 def write_csv(fs: Factsheet, path: Path) -> None:

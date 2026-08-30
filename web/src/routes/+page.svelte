@@ -5,7 +5,7 @@
 </script>
 
 {#if data.report}
-	<Report report={data.report} previous={data.previous} />
+	<Report report={data.report} previous={data.previous} regions={data.regions.regions} />
 {:else}
 	<Empty />
 {/if}
