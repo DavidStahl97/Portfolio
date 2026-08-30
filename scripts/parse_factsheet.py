@@ -67,13 +67,13 @@ def _open(pdf: bytes | Path):
     return pdfplumber.open(str(pdf))
 
 
-def _pages_text(pdf: bytes | Path) -> list[str]:
+def pages_text(pdf: bytes | Path) -> list[str]:
     with _open(pdf) as doc:
         return [p.extract_text() or "" for p in doc.pages]
 
 
 def extract_as_of_date(pdf: bytes | Path) -> dt.date:
-    for text in _pages_text(pdf):
+    for text in pages_text(pdf):
         m = DATE_RE.search(text)
         if m:
             return dt.datetime.strptime(m.group(1), "%d %B %Y").date()
@@ -94,7 +94,7 @@ def _to_row(m: re.Match) -> Row:
 
 
 def parse(pdf: bytes | Path) -> Factsheet:
-    pages = _pages_text(pdf)
+    pages = pages_text(pdf)
     as_of = None
     for text in pages:
         m = DATE_RE.search(text)

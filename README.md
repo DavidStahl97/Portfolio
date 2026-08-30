@@ -23,6 +23,31 @@ Both are therefore delimited identically (same universe, same as-of date) – ex
 what a 50/50 mix needs. The PDF is freely available, and the download endpoint always
 serves the latest issue.
 
+### The five regional factsheets
+
+Next to the blend the run fetches the factsheets of the five indices that together
+tile the same universe as the All-World - the indices behind Vanguard's five regional
+UCITS ETFs, which is how the portfolio is meant to be held:
+
+| Index | FTSE issue | ETF |
+|---|---|---|
+| FTSE North America | `AWNAMERS` | VNRT |
+| FTSE Developed Europe | `AWDEURS` | VEUR |
+| FTSE Emerging | `AWALLE` | VFEM |
+| FTSE Japan | `WIJPN` | VJPN |
+| FTSE Developed Asia Pacific ex Japan | `AWDPACXJ` | VAPX |
+
+They are downloaded and checked - is this the index we asked for, does it carry the
+as-of date of the blend - and otherwise left alone: nothing is parsed out of them and
+nothing is versioned from them yet. The point of having them is that the split of the
+world into regions can later be read out of FTSE's own documents instead of a country
+list kept by hand. The five do not cover the All-World completely: Israel is developed
+but sits in FTSE's Middle East & Africa region, so roughly 0.3 % of the index is in
+none of them.
+
+A regional factsheet that cannot be fetched is a warning, not a failed run - the
+country data of the run do not depend on it.
+
 ## What lives where
 
 Python **reads and checks**; it computes nothing and writes neither markup nor
@@ -32,7 +57,8 @@ only place where any weighting happens.
 
 | File | Purpose |
 |---|---|
-| `scripts/fetch_factsheet.py` | downloads the current factsheet PDF |
+| `scripts/indices.py` | the FTSE issues that are downloaded: the blend and the five regions |
+| `scripts/fetch_factsheet.py` | downloads factsheet PDFs |
 | `scripts/parse_factsheet.py` | parses the country table, checks it, writes CSV + `run_*.json` |
 | `scripts/export_data.py` | reshapes the versioned data into `web/static/data/` (without computing) |
 | `scripts/update.py` | full run: download → parse → check → export |
@@ -61,6 +87,7 @@ Individual steps, if wanted:
 
 ```bash
 python scripts/fetch_factsheet.py                       # only download the PDF
+python scripts/fetch_factsheet.py --regions             # the five regional factsheets
 python scripts/parse_factsheet.py <pdf>                 # only CSV + run.json
 python scripts/export_data.py --out web/static          # only export
 ```

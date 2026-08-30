@@ -107,6 +107,27 @@ origin. `npm run preview --prefix web` and `http://localhost:4173/` are enough,
 the start page, an as-of date reached directly by its address, `/history/` and
 `/data/`. The `python3` server above does the same for the build with the path prefix.
 
+## The issue registry
+
+`scripts/indices.py` lists the six FTSE issues that get downloaded: the blend
+(`GDPWLDS`, the one the country data come from) and the five regional indices behind
+Vanguard's five UCITS ETFs. It holds names, not numbers - the regional split is FTSE's,
+and combining anything out of it would belong in the app anyway.
+
+**The five issue names have not yet been confirmed against a live download.** They were
+read off FTSE's own factsheet URLs, but the download endpoint is unreachable from the
+development container, so the first run that has a network is the one that proves them.
+That is what `verify_title` is for: the endpoint answers an unknown issue name with a
+PDF of some other index rather than with an error, so without the check a typo becomes
+a plausible-looking file of the wrong index. If a title check fails, correct the issue
+name in `indices.py` - do not loosen the check.
+
+Fetching a regional factsheet is deliberately allowed to fail: it is a side dataset and
+must not hold the country data of a run hostage, so `update.py` warns and keeps its exit
+code. `parse_factsheet.py` does not touch these PDFs at all yet - `ROW_RE` reads the
+blend's *two* index columns side by side, and a single-index factsheet has one set, so
+parsing them needs its own pattern.
+
 ## The parser
 
 `ROW_RE` in `parse_factsheet.py` reads lines of the form
